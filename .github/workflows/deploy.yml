@@ -7,12 +7,20 @@ name: Deploy to Hostinger VPS
 # Required secrets:
 #   Connection:  VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_PATH
 #   App config:  SITE_HOSTNAME
+#   Auth gate:   BABY_AUTH_HASH (bcrypt), BABY_AUTH_COOKIE (random hex)
 # Optional secrets:
 #   BABY_HTTP_PORT defaults to 8088
+#   PHOTOS_DIR     defaults to /srv/yalaman-photos
 #
-# SITE_HOSTNAME is written to .env on every deploy, so the server never needs
-# manual configuration — change a secret, push, done. (The live hostname is
-# also hardcoded in the Caddyfile; SITE_HOSTNAME is forwarded for parity.)
+# IMPORTANT — bcrypt hash transport:
+#   BABY_AUTH_HASH is a bcrypt hash like $2b$12$...  The '$' characters get
+#   re-expanded by the remote shell when forwarded verbatim through
+#   appleboy/ssh-action's `envs:` (turning $2b / $12 into empty undefined
+#   vars), which leaves Caddy with a broken basic_auth hash and makes it
+#   crash-loop -> the site serves a blank page. To avoid that we base64-encode
+#   the hash on the runner (base64 has no '$'), forward the safe string, and
+#   decode it on the VPS into an exported env var that docker compose then
+#   substitutes literally.
 
 on:
   push:
@@ -35,12 +43,13 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
           SITE_HOSTNAME: ${{ secrets.SITE_HOSTNAME }}
-          BABY_HTTP_PORT: ${{ secrets.BABY_HTTP_PORT }}
+          BABY_AUTH_HASH: ${{ secrets.BABY_AUTH_HASH }}
+          BABY_AUTH_COOKIE: ${{ secrets.BABY_AUTH_COOKIE }}
         run: |
           set -euo pipefail
 
           missing=0
-          for name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_PATH SITE_HOSTNAME; do
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_PATH SITE_HOSTNAME BABY_AUTH_HASH BABY_AUTH_COOKIE; do
             if [ -z "${!name:-}" ]; then
               echo "::error::Missing required repository secret: $name"
               missing=1
@@ -56,17 +65,34 @@ jobs:
             exit 1
           fi
 
+          case "$BABY_AUTH_HASH" in
+            '$2'*) : ;;
+            *) echo "::error::BABY_AUTH_HASH must be a bcrypt hash (starts with \$2). Generate it with: docker run --rm caddy caddy hash-password --plaintext 'yourpass'"; exit 1 ;;
+          esac
+
+      - name: Encode auth hash for safe SSH transport
+        id: enc
+        env:
+          BABY_AUTH_HASH: ${{ secrets.BABY_AUTH_HASH }}
+        run: |
+          set -euo pipefail
+          # base64 (single line, no '$') survives ssh-action env forwarding intact.
+          echo "b64=$(printf '%s' "$BABY_AUTH_HASH" | base64 -w0)" >> "$GITHUB_OUTPUT"
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           SITE_HOSTNAME: ${{ secrets.SITE_HOSTNAME }}
           BABY_HTTP_PORT: ${{ secrets.BABY_HTTP_PORT }}
+          BABY_AUTH_HASH_B64: ${{ steps.enc.outputs.b64 }}
+          BABY_AUTH_COOKIE: ${{ secrets.BABY_AUTH_COOKIE }}
+          PHOTOS_DIR: ${{ secrets.PHOTOS_DIR }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 15m
-          envs: SITE_HOSTNAME,BABY_HTTP_PORT
+          envs: SITE_HOSTNAME,BABY_HTTP_PORT,BABY_AUTH_HASH_B64,BABY_AUTH_COOKIE,PHOTOS_DIR
           script: |
             set -euo pipefail
 
@@ -85,7 +111,28 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Write .env from the secret forwarded above. umask 077 -> chmod 600.
+            # Decode the bcrypt hash back from base64. Done in a single shell
+            # var assignment so the '$' characters are never re-expanded.
+            BABY_AUTH_HASH="$(printf '%s' "$BABY_AUTH_HASH_B64" | base64 -d)"
+
+            # Fail loudly if the hash didn't survive transport, instead of
+            # deploying a Caddy that crash-loops on an empty basic_auth hash.
+            case "$BABY_AUTH_HASH" in
+              '$2'*) : ;;
+              *) echo "::error:: decoded BABY_AUTH_HASH is not a bcrypt hash; aborting deploy." >&2; exit 1 ;;
+            esac
+
+            # Export the values so `docker compose` substitutes them via ${...}
+            # in docker-compose.yml. Compose reads them literally from the
+            # process environment (no further '$' interpretation), so the hash
+            # reaches the container — and Caddy's {$BABY_AUTH_HASH} — intact.
+            # We deliberately do NOT write the hash into .env, because compose
+            # re-interprets '$' inside .env values.
+            export BABY_AUTH_HASH
+            export BABY_AUTH_COOKIE
+            export PHOTOS_DIR="${PHOTOS_DIR:-/srv/yalaman-photos}"
+
+            # Write .env with only the '$'-free values. umask 077 -> chmod 600.
             umask 077
             cat > .env <<EOF
             SITE_HOSTNAME=${SITE_HOSTNAME}
@@ -98,5 +145,11 @@ jobs:
             docker network create proxy-shared 2>/dev/null || true
 
             docker compose up -d --build
+
+            # Surface the container state in the deploy log so a crash-looping
+            # Caddy is visible here instead of as a silent blank page.
+            sleep 3
+            docker compose ps
+            docker compose logs --tail=20 web || true
 
             docker image prune -f
