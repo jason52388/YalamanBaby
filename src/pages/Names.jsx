@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  addName, updateName, deleteName, moveName,
-  viewColumn, exportJson, mergeImport,
+  uid, updateName, deleteName, moveName,
+  viewColumn,
 } from '../lib/names.js';
 import { subscribeNames, saveNames, sharedMode } from '../lib/namesStore.js';
 import { lookupMeaning } from '../data/nameMeanings.js';
+import { lookupNameAuto } from '../lib/lookupName.js';
 
 const COLUMNS = [
   { gender: 'boy',    title: 'Boys',   emoji: '👦' },
@@ -24,29 +25,13 @@ const SORTS = [
 function AddForm({ gender, onAdd }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  const [origin, setOrigin] = useState('');
-  const [meaning, setMeaning] = useState('');
-  const [lookedUp, setLookedUp] = useState(false);
-
-  // Auto-populate from the dictionary when the name field changes (only if
-  // the user hasn't typed their own override yet).
-  function handleNameChange(v) {
-    setName(v);
-    if (!lookedUp || (!origin && !meaning)) {
-      const m = lookupMeaning(v);
-      if (m) {
-        setOrigin(m.origin);
-        setMeaning(m.meaning);
-        setLookedUp(true);
-      }
-    }
-  }
 
   function submit(e) {
     e.preventDefault();
     if (!name.trim()) return;
-    onAdd({ name, gender, origin, meaning });
-    setName(''); setOrigin(''); setMeaning(''); setLookedUp(false);
+    // Just the name — origin & meaning are pulled automatically.
+    onAdd({ name: name.trim(), gender });
+    setName('');
     setOpen(false);
   }
 
@@ -62,23 +47,13 @@ function AddForm({ gender, onAdd }) {
     <form className="add-form" onSubmit={submit}>
       <input
         autoFocus
-        placeholder="Name"
+        placeholder="Type a name…"
         value={name}
-        onChange={(e) => handleNameChange(e.target.value)}
-      />
-      <input
-        placeholder="Origin (e.g. Hebrew)"
-        value={origin}
-        onChange={(e) => setOrigin(e.target.value)}
-      />
-      <input
-        placeholder="Meaning / notes"
-        value={meaning}
-        onChange={(e) => setMeaning(e.target.value)}
+        onChange={(e) => setName(e.target.value)}
       />
       <div className="form-row">
-        <button type="submit" className="btn-primary">Save</button>
-        <button type="button" className="btn-link" onClick={() => { setOpen(false); setName(''); setOrigin(''); setMeaning(''); }}>
+        <button type="submit" className="btn-primary">Add</button>
+        <button type="button" className="btn-link" onClick={() => { setOpen(false); setName(''); }}>
           Cancel
         </button>
       </div>
@@ -129,9 +104,17 @@ function NameRow({ entry, onUpdate, onDelete, onMoveUp, onMoveDown }) {
           {!editing ? (
             <>
               <p className="meaning">
-                {entry.origin && <span className="origin">{entry.origin}</span>}
-                {entry.origin && entry.meaning && ' — '}
-                {entry.meaning || (!entry.origin && <em style={{ color: 'var(--ink-soft)' }}>No description yet</em>)}
+                {entry.pending ? (
+                  <em style={{ color: 'var(--ink-soft)' }}>Looking up origin & meaning…</em>
+                ) : (
+                  <>
+                    {entry.origin && <span className="origin">{entry.origin}</span>}
+                    {entry.origin && entry.meaning && ' — '}
+                    {entry.meaning || (!entry.origin && (
+                      <em style={{ color: 'var(--ink-soft)' }}>No description found — click Edit to add one.</em>
+                    ))}
+                  </>
+                )}
               </p>
               <div className="row-actions">
                 <button onClick={startEdit} className="btn-link">Edit</button>
@@ -200,7 +183,6 @@ function Column({ column, list, sort, setSort, ...handlers }) {
 export default function Names() {
   const [list, setList] = useState([]);
   const [sort, setSort] = useState({ boy: 'rank', girl: 'rank', unisex: 'rank' });
-  const fileRef = useRef(null);
 
   // Subscribe to the shared/cloud (or local) store. The cb fires once
   // immediately and again on every remote change — so the page reacts live
@@ -221,28 +203,41 @@ export default function Names() {
     });
   }
 
+  // Add a name, then auto-pull its origin/meaning (dictionary first, then a
+  // live Wikipedia lookup) and patch it in when it resolves.
+  async function onAdd({ name, gender }) {
+    const id = uid();
+    const dict = lookupMeaning(name);
+    const entry = {
+      id, name, gender,
+      origin: dict?.origin || '',
+      meaning: dict?.meaning || '',
+      // Mark as still-resolving when we have no instant dictionary hit, so the
+      // row can show "Looking up…" instead of "No description".
+      pending: !dict,
+      addedAt: Date.now(),
+    };
+    mutate((l) => [...l, entry]);
+
+    if (!dict) {
+      let found = null;
+      try {
+        found = await lookupNameAuto(name);
+      } catch { /* ignore */ }
+      mutate((l) => updateName(l, id, {
+        origin: found?.origin || '',
+        meaning: found?.meaning || '',
+        pending: false,
+      }));
+    }
+  }
+
   const handlers = {
-    onAdd: (data) => mutate((l) => addName(l, data)),
+    onAdd,
     onUpdate: (id, patch) => mutate((l) => updateName(l, id, patch)),
     onDelete: (id) => mutate((l) => deleteName(l, id)),
     onMove: (id, dir) => mutate((l) => moveName(l, id, dir)),
   };
-
-  function handleImport(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const incoming = JSON.parse(reader.result);
-        mutate((l) => mergeImport(l, incoming));
-      } catch {
-        alert("Couldn't read that file — make sure it's a baby-names JSON export.");
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  }
 
   return (
     <div className="page">
