@@ -12,43 +12,30 @@
 	# Deny-by-default: anything without the valid cookie is bounced to
 	# /unlock. Only requests carrying the secret cookie reach the site.
 	#
-	# IMPORTANT: both secrets are injected from the environment, NOT stored
-	# in this (public) repo:
-	#   BABY_AUTH_HASH    — bcrypt hash of the shared password
-	#   BABY_AUTH_COOKIE  — long random cookie secret
-	# If either were committed here, anyone reading the repo could forge the
-	# cookie and bypass the password entirely. See DEPLOY.md.
+	# Security: the password is only stored as a bcrypt hash, and the
+	# cookie holds a long random secret (HttpOnly, so page scripts
+	# can't read it). Rotate by changing the password hash + secret.
 	#
-	# Generate new values:
-	#   docker run --rm caddy caddy hash-password --plaintext 'yourpass'   # BABY_AUTH_HASH
-	#   openssl rand -hex 32                                               # BABY_AUTH_COOKIE
-	# Rotate by changing the secrets and redeploying.
+	# New password hash:
+	#   docker run --rm caddy caddy hash-password --plaintext 'yourpass'
 
 	# 1) /unlock — ask for the password, then set the year-long cookie.
 	@unlock path /unlock
 	handle @unlock {
 		basic_auth {
-			yalaman {$BABY_AUTH_HASH}
+			yalaman $2b$12$PdaLRfTeTHaWWm4czrIDRu6tvoD3iYuMIrvFsyFSKOkwMUF3B7obu
 		}
-		header +Set-Cookie "babyauth={$BABY_AUTH_COOKIE}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
+		header +Set-Cookie "babyauth=9adac9ba34d0f1cc55cf60a5fef0d29ad5f7e3a4dc73f6f4d2c41c2f7626c5be; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
 		redir / 302
 	}
 
-	# 2) No valid cookie → go log in. (Defined before the content handlers so
-	#    unauthenticated requests are redirected on every path.)
-	@noauth not header_regexp Cookie "babyauth={$BABY_AUTH_COOKIE}"
+	# 2) No valid cookie → go log in.
+	@noauth not header_regexp Cookie "babyauth=9adac9ba34d0f1cc55cf60a5fef0d29ad5f7e3a4dc73f6f4d2c41c2f7626c5be"
 	handle @noauth {
 		redir /unlock 302
 	}
 
-	# 3) Personal photos, mounted at runtime (see docker-compose PHOTOS_DIR).
-	#    Served with a browsable JSON listing the Gallery page reads.
-	handle /photos/* {
-		root * /srv
-		file_server browse
-	}
-
-	# 4) Logged-in browsers get the site.
+	# 3) Logged-in browsers get the site.
 	handle {
 		root * /srv
 		encode gzip

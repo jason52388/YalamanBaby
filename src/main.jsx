@@ -1,4 +1,4 @@
-import React, { lazy } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import App from './App.jsx';
@@ -7,9 +7,7 @@ import Progress from './pages/Progress.jsx';
 import Tips from './pages/Tips.jsx';
 import Diet from './pages/Diet.jsx';
 import Gallery from './pages/Gallery.jsx';
-// Names pulls in the Firebase SDK — load it on demand so it stays out of the
-// main bundle that Home/Progress/Tips/Diet/Gallery share.
-const Names = lazy(() => import('./pages/Names.jsx'));
+import Names from './pages/Names.jsx';
 import './styles/theme.css';
 
 // HashRouter keeps deep links working on static hosts (GitHub Pages, etc.)

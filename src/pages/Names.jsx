@@ -3,7 +3,7 @@ import {
   uid, updateName, deleteName, moveName,
   viewColumn,
 } from '../lib/names.js';
-import { subscribeNames, mutateNames, sharedMode } from '../lib/namesStore.js';
+import { subscribeNames, saveNames, sharedMode } from '../lib/namesStore.js';
 import { lookupMeaning } from '../data/nameMeanings.js';
 import { lookupNameAuto } from '../lib/lookupName.js';
 
@@ -64,7 +64,7 @@ function AddForm({ gender, onAdd }) {
 // ─────────────────────────────────────────────────────────────
 //  A single name row (expandable, with inline edit)
 // ─────────────────────────────────────────────────────────────
-function NameRow({ entry, canReorder, onUpdate, onDelete, onMoveUp, onMoveDown }) {
+function NameRow({ entry, onUpdate, onDelete, onMoveUp, onMoveDown }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
@@ -119,13 +119,9 @@ function NameRow({ entry, canReorder, onUpdate, onDelete, onMoveUp, onMoveDown }
               <div className="row-actions">
                 <button onClick={startEdit} className="btn-link">Edit</button>
                 <button onClick={remove} className="btn-link danger">Delete</button>
-                {canReorder && (
-                  <>
-                    <span className="spacer" />
-                    <button onClick={() => onMoveUp(entry.id)} title="Move up" className="btn-icon">↑</button>
-                    <button onClick={() => onMoveDown(entry.id)} title="Move down" className="btn-icon">↓</button>
-                  </>
-                )}
+                <span className="spacer" />
+                <button onClick={() => onMoveUp(entry.id)} title="Move up" className="btn-icon">↑</button>
+                <button onClick={() => onMoveDown(entry.id)} title="Move down" className="btn-icon">↓</button>
               </div>
             </>
           ) : (
@@ -150,10 +146,6 @@ function NameRow({ entry, canReorder, onUpdate, onDelete, onMoveUp, onMoveDown }
 // ─────────────────────────────────────────────────────────────
 function Column({ column, list, sort, setSort, ...handlers }) {
   const rows = viewColumn(list, column.gender, sort);
-  // Reordering only makes sense against the manual ("rank") order — when the
-  // column is sorted A→Z or by newest, the arrows would move rows relative to
-  // an order the user can't see, so we hide them.
-  const canReorder = sort === 'rank';
   return (
     <div className="card name-col">
       <header className="col-head">
@@ -173,7 +165,6 @@ function Column({ column, list, sort, setSort, ...handlers }) {
             <NameRow
               key={entry.id}
               entry={entry}
-              canReorder={canReorder}
               onUpdate={handlers.onUpdate}
               onDelete={handlers.onDelete}
               onMoveUp={(id) => handlers.onMove(id, -1)}
@@ -201,13 +192,15 @@ export default function Names() {
     return unsub;
   }, []);
 
-  // Optimistic-update helper: apply the transform locally for snappy UX, then
-  // persist the same pure transform atomically. The store re-runs `fn` against
-  // the latest stored value, so concurrent edits merge instead of clobbering;
-  // the next snapshot matches what we already have, so no flicker.
+  // Optimistic-update helper: apply the transform locally for snappy UX,
+  // then push to storage. The next snapshot from the store will match what
+  // we already have, so no flicker.
   function mutate(fn) {
-    setList(fn);
-    mutateNames(fn);
+    setList((current) => {
+      const next = fn(current);
+      saveNames(next);
+      return next;
+    });
   }
 
   // Add a name, then auto-pull its origin/meaning (dictionary first, then a

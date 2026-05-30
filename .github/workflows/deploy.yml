@@ -36,13 +36,11 @@ jobs:
           VPS_PATH: ${{ secrets.VPS_PATH }}
           SITE_HOSTNAME: ${{ secrets.SITE_HOSTNAME }}
           BABY_HTTP_PORT: ${{ secrets.BABY_HTTP_PORT }}
-          BABY_AUTH_HASH: ${{ secrets.BABY_AUTH_HASH }}
-          BABY_AUTH_COOKIE: ${{ secrets.BABY_AUTH_COOKIE }}
         run: |
           set -euo pipefail
 
           missing=0
-          for name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_PATH SITE_HOSTNAME BABY_AUTH_HASH BABY_AUTH_COOKIE; do
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_PATH SITE_HOSTNAME; do
             if [ -z "${!name:-}" ]; then
               echo "::error::Missing required repository secret: $name"
               missing=1
@@ -63,15 +61,12 @@ jobs:
         env:
           SITE_HOSTNAME: ${{ secrets.SITE_HOSTNAME }}
           BABY_HTTP_PORT: ${{ secrets.BABY_HTTP_PORT }}
-          BABY_AUTH_HASH: ${{ secrets.BABY_AUTH_HASH }}
-          BABY_AUTH_COOKIE: ${{ secrets.BABY_AUTH_COOKIE }}
-          PHOTOS_DIR: ${{ secrets.PHOTOS_DIR }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 15m
-          envs: SITE_HOSTNAME,BABY_HTTP_PORT,BABY_AUTH_HASH,BABY_AUTH_COOKIE,PHOTOS_DIR
+          envs: SITE_HOSTNAME,BABY_HTTP_PORT
           script: |
             set -euo pipefail
 
@@ -102,10 +97,6 @@ jobs:
             # it can reverse_proxy to yalaman-baby:80 by container name.
             docker network create proxy-shared 2>/dev/null || true
 
-            # BABY_AUTH_HASH / BABY_AUTH_COOKIE / PHOTOS_DIR are forwarded into
-            # this shell (see `envs:` above), so `docker compose` substitutes
-            # them via ${...} without writing the bcrypt hash (with its $ signs)
-            # into .env. They reach the container as Caddy/compose env vars.
             docker compose up -d --build
 
             docker image prune -f

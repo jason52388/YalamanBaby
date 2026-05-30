@@ -1,33 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-// Photos are NOT bundled into the build — they're personal and gitignored, and
-// the server rebuilds from a clean clone where they don't exist. Instead they
-// live in a runtime-mounted folder (see docker-compose `PHOTOS_DIR`) that Caddy
-// serves at /photos/ with a browsable JSON listing. We fetch that listing here.
-const IMG_RE = /\.(jpe?g|png|webp|gif)$/i;
+// Load every image dropped into /public/photos automatically.
+// Add or remove files there and the gallery updates — no code changes.
+const modules = import.meta.glob('/public/photos/*.{jpg,jpeg,png,JPG,JPEG,PNG,webp,gif}', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+});
+
+const photos = Object.entries(modules)
+  .map(([path, url]) => ({ url, name: path.split('/').pop() }))
+  .sort((a, b) => a.name.localeCompare(b.name));
 
 export default function Gallery() {
-  const [photos, setPhotos] = useState([]);
   const [active, setActive] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/photos/', { headers: { Accept: 'application/json' } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        // Caddy's file_server browse returns { items: [{ name, is_dir, ... }] };
-        // tolerate a bare array too.
-        const items = Array.isArray(data) ? data : data.items || [];
-        const list = items
-          .filter((it) => it && !it.is_dir && IMG_RE.test(it.name))
-          .map((it) => ({ url: `/photos/${encodeURIComponent(it.name)}`, name: it.name }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-        setPhotos(list);
-      })
-      .catch(() => { /* folder not mounted yet — show the empty state */ });
-    return () => { cancelled = true; };
-  }, []);
 
   return (
     <div className="page">
@@ -41,8 +27,8 @@ export default function Gallery() {
           <p style={{ fontSize: '2.5rem', margin: 0 }}>📸</p>
           <h3>No photos yet</h3>
           <p>
-            Add image files to the server's photos folder (the <code>PHOTOS_DIR</code>
-            volume — see <code>DEPLOY.md</code>) and they'll appear here automatically.
+            Drop image files into the <code>public/photos</code> folder and they'll appear
+            here automatically. (We can also export them straight from Apple Photos together.)
           </p>
         </div>
       ) : (
