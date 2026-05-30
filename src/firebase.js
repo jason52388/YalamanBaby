@@ -20,10 +20,13 @@ import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
 
 export const firebaseConfig = {
+  databaseURL: 'https://yalaman-baby-default-rtdb.firebaseio.com',
+  projectId: 'yalaman-baby',
+  // The keys below aren't needed for Realtime Database with open rules. If you
+  // later add Firebase Auth, paste the full config from the Firebase console
+  // (Project settings → Your apps → SDK setup and configuration).
   apiKey: '',
   authDomain: '',
-  databaseURL: '', // ← required for Realtime Database
-  projectId: '',
   storageBucket: '',
   messagingSenderId: '',
   appId: '',
