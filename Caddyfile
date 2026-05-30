@@ -2,19 +2,16 @@
 #
 # Hostnames are HARDCODED (not {$SITE_HOSTNAME}) — matching the stock-site
 # setup — so an empty/missing env var can never produce an invalid empty site
-# address that crashes Caddy.
-#
-# ⚠️ REPLACE the two hostnames below with your real baby-site domain before
-#    deploying. Both the bare domain AND www must have DNS A records pointing
-#    at this VPS for HTTPS to succeed.
+# address that crashes Caddy. Both apex and www must have DNS A records
+# pointing at this VPS for HTTPS to succeed (Let's Encrypt needs both).
 
 # Bare domain -> redirect to www (canonical), preserving path/query.
-ourbabydomain.com {
-	redir https://www.ourbabydomain.com{uri} permanent
+yalamanbaby.com {
+	redir https://www.yalamanbaby.com{uri} permanent
 }
 
 # www -> the actual site.
-www.ourbabydomain.com {
+www.yalamanbaby.com {
 	root * /srv
 	encode gzip
 	try_files {path} /index.html
