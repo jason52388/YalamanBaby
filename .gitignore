@@ -3,6 +3,7 @@ dist
 .DS_Store
 *.local
 .vite
+.env
 
 # Keep personal photos out of the public repo (they live on the server only)
 public/photos/*

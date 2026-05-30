@@ -1,8 +1,25 @@
-# Serves the static site over plain HTTP on :80.
-# HTTPS and domain routing are handled by your caddy-docker-proxy in front.
-:80 {
+# Caddy serves the static site and auto-provisions Let's Encrypt HTTPS.
+#
+# Hostnames are HARDCODED (not {$SITE_HOSTNAME}) — matching the stock-site
+# setup — so an empty/missing env var can never produce an invalid empty site
+# address that crashes Caddy.
+#
+# ⚠️ REPLACE the two hostnames below with your real baby-site domain before
+#    deploying. Both the bare domain AND www must have DNS A records pointing
+#    at this VPS for HTTPS to succeed.
+
+# Bare domain -> redirect to www (canonical), preserving path/query.
+ourbabydomain.com {
+	redir https://www.ourbabydomain.com{uri} permanent
+}
+
+# www -> the actual site.
+www.ourbabydomain.com {
 	root * /srv
-	file_server
-	try_files {path} /index.html
 	encode gzip
+	try_files {path} /index.html
+	file_server
+
+	# Light caching so a redeploy shows new content within a minute.
+	header /*.html Cache-Control "public, max-age=60"
 }

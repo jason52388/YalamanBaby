@@ -1,17 +1,36 @@
-# Runs behind your existing caddy-docker-proxy.
-# No published ports and no own HTTPS — the proxy reaches this container over
-# the shared `caddy` network and routes/terminates TLS based on the labels.
-# (No top-level `version:` field on purpose — hosted parsers reject it.)
+# Mirrors the stock-site deployment pattern.
+#
+# NOTE: No `version:` field — Hostinger's compose parser rejects it.
+# NOTE: Explicit `environment:` (not `env_file:`) — Hostinger silently drops
+#       env_file. SITE_HOSTNAME is forwarded for parity; the live hostname is
+#       hardcoded in the Caddyfile to avoid an empty-env crash.
+# NOTE: Named volumes (not bind mounts) — Hostinger runs containers from a path
+#       that lacks the repo files, so relative bind mounts resolve to empty
+#       dirs. The Caddyfile and built site are baked into the image instead.
+#
+# The site is built and served by one image (multi-stage Dockerfile: Node build
+# -> Caddy serve). Caddy owns 80/443 and does its own Let's Encrypt HTTPS.
 services:
   web:
-    image: ghcr.io/jason52388/yalamanbaby:latest
+    build: .
+    container_name: yalaman-baby
     restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      - SITE_HOSTNAME=${SITE_HOSTNAME}
+    volumes:
+      - caddy_data:/data # persists HTTPS certs across rebuilds
+      - caddy_config:/config
     networks:
-      - caddy
-    labels:
-      caddy: ${SITE_DOMAIN}
-      caddy.reverse_proxy: "{{upstreams 80}}"
+      - baby
 
 networks:
-  caddy:
-    external: true
+  baby:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
