@@ -1,6 +1,6 @@
-# {$SITE_DOMAIN} is supplied at runtime (from docker-compose environment).
-# Caddy automatically provisions and renews a free HTTPS certificate for it.
-{$SITE_DOMAIN} {
+# Serves the static site over plain HTTP on :80.
+# HTTPS and domain routing are handled by your caddy-docker-proxy in front.
+:80 {
 	root * /srv
 	file_server
 	try_files {path} /index.html

@@ -59,27 +59,25 @@ jobs:
             mkdir -p /opt/baby
             cd /opt/baby
 
-            # Write the compose file (no version: field).
+            # Write the compose file. Runs behind the existing
+            # caddy-docker-proxy: no published ports, routed by labels over
+            # the shared external `caddy` network.
             cat > docker-compose.yml <<'YAML'
             services:
               web:
                 image: ghcr.io/jason52388/yalamanbaby:latest
                 restart: unless-stopped
-                ports:
-                  - "80:80"
-                  - "443:443"
-                  - "443:443/udp"
-                environment:
-                  - SITE_DOMAIN=${SITE_DOMAIN}
-                volumes:
-                  - caddy_data:/data
-                  - caddy_config:/config
-            volumes:
-              caddy_data:
-              caddy_config:
+                networks:
+                  - caddy
+                labels:
+                  caddy: ${SITE_DOMAIN}
+                  caddy.reverse_proxy: "{{upstreams 80}}"
+            networks:
+              caddy:
+                external: true
             YAML
 
-            # Provide the domain to compose via its .env file.
+            # Provide the domain to compose via its .env file (used in the label).
             echo "SITE_DOMAIN=${{ secrets.SITE_DOMAIN }}" > .env
 
             # Pull the new image and (re)start the container.

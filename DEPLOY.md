@@ -2,11 +2,12 @@
 
 Every push to `main` builds a **Docker image** of the site, pushes it to
 GitHub Container Registry (GHCR), and deploys it on your VPS with
-`docker compose`. The image serves the site with **Caddy**, which provisions
-free automatic HTTPS for your domain.
+`docker compose`.
 
-The workflow installs Docker on the VPS automatically the first time, so you
-don't need to touch the server terminal.
+This VPS already runs **caddy-docker-proxy**, so the site container serves
+plain HTTP on port 80 and joins the shared `caddy` Docker network. Your
+existing proxy reads the container's labels, routes your domain to it, and
+handles HTTPS — there are no published ports and no port 80/443 collision.
 
 ## One-time setup
 
@@ -48,10 +49,11 @@ if needed, and start the container. When it's green, visit `https://yourdomain`.
 
 ## How it's wired (the files)
 - **`Dockerfile`** — multi-stage: builds the site with Node, then serves it
-  from a small Caddy image.
-- **`Caddyfile`** — serves `/srv`, with auto-HTTPS for `{$SITE_DOMAIN}`.
-- **`docker-compose.yml`** — runs the image, maps ports 80/443, and keeps a
-  `caddy_data` volume so HTTPS certificates survive restarts.
+  from a small Caddy image over plain HTTP on :80.
+- **`Caddyfile`** — serves `/srv` on `:80` (no TLS; the proxy handles that).
+- **`docker-compose.yml`** — runs the image on the external `caddy` network
+  with labels (`caddy: <domain>`, `reverse_proxy {{upstreams 80}}`) that
+  caddy-docker-proxy uses to route the domain and issue the certificate.
 - **`.github/workflows/deploy.yml`** — the build + deploy pipeline.
 
 ## Updating the site later
@@ -62,9 +64,9 @@ and redeploys automatically.
 - **Action fails at the deploy step:** check `VPS_HOST` / `VPS_USERNAME` /
   `VPS_PASSWORD`. If the VPS blocks root password login, we can switch to an
   SSH key.
-- **Site on http but not https:** make sure the DNS A record points to the VPS
-  and has propagated, then re-run the workflow. Certs are issued on first
-  request and cached in the `caddy_data` volume.
-- **"port is already allocated" (80/443):** another web server is running on
-  the VPS. Stop/disable it (e.g. `systemctl disable --now apache2 nginx`), then
-  re-run.
+- **Compose error: network "caddy" not found / not external:** the shared
+  proxy network is named something else. Run `docker network ls` on the VPS
+  and update the network name in the workflow's compose block.
+- **Site not loading / 502 from the proxy:** confirm caddy-docker-proxy is
+  running and on the `caddy` network, and that DNS for your domain points at
+  the VPS. The proxy issues the cert once DNS resolves.

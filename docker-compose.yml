@@ -1,20 +1,17 @@
-# NOTE: no top-level `version:` field on purpose — modern/hosted compose
-# parsers reject it. The file starts directly at `services:`.
+# Runs behind your existing caddy-docker-proxy.
+# No published ports and no own HTTPS — the proxy reaches this container over
+# the shared `caddy` network and routes/terminates TLS based on the labels.
+# (No top-level `version:` field on purpose — hosted parsers reject it.)
 services:
   web:
     image: ghcr.io/jason52388/yalamanbaby:latest
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp" # HTTP/3
-    environment:
-      # Explicit env (not env_file) so hosted compose parsers don't drop it.
-      - SITE_DOMAIN=${SITE_DOMAIN}
-    volumes:
-      - caddy_data:/data # persists HTTPS certs across restarts
-      - caddy_config:/config
+    networks:
+      - caddy
+    labels:
+      caddy: ${SITE_DOMAIN}
+      caddy.reverse_proxy: "{{upstreams 80}}"
 
-volumes:
-  caddy_data:
-  caddy_config:
+networks:
+  caddy:
+    external: true
