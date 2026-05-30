@@ -1,14 +1,18 @@
-# Deploying to your Hostinger VPS (automatic via GitHub Actions)
+# Deploying to your Hostinger VPS (Docker, via GitHub Actions)
 
-Every push to `main` builds the site and deploys it to your VPS automatically.
-The workflow also installs and configures the **Caddy** web server on the first
-run (Caddy gives you free automatic HTTPS).
+Every push to `main` builds a **Docker image** of the site, pushes it to
+GitHub Container Registry (GHCR), and deploys it on your VPS with
+`docker compose`. The image serves the site with **Caddy**, which provisions
+free automatic HTTPS for your domain.
+
+The workflow installs Docker on the VPS automatically the first time, so you
+don't need to touch the server terminal.
 
 ## One-time setup
 
 ### 1. Add these secrets in GitHub
-Go to your repo → **Settings** → **Secrets and variables** → **Actions** →
-**New repository secret**, and add each of these:
+Repo → **Settings** → **Secrets and variables** → **Actions** →
+**New repository secret**:
 
 | Secret name    | Value                                              | Required |
 |----------------|----------------------------------------------------|----------|
@@ -18,38 +22,49 @@ Go to your repo → **Settings** → **Secrets and variables** → **Actions** �
 | `SITE_DOMAIN`  | The domain to serve at (e.g. `ouryalamanbaby.com`) | ✅ |
 | `VPS_PORT`     | SSH port — only if not the default `22`            | optional |
 
-> Find the IP, root user, and password in Hostinger: **hPanel → VPS → your
-> server**. Use the "Root password" you set when creating the VPS (you can
-> reset it there if you've forgotten it).
+> `GITHUB_TOKEN` is built in — you do **not** add it. It's what lets both the
+> Action and your VPS pull the image from GHCR, so there's no separate
+> registry login to manage.
+>
+> Find the IP, user, and password in Hostinger: **hPanel → VPS → your server**
+> (you can reset the root password there if needed).
 
 ### 2. Point your domain at the VPS (DNS)
-GitHub can't do this part — it's done at your domain. In Hostinger:
-**hPanel → Domains → (your domain) → DNS / Nameservers → DNS records**, and add:
+Done at your domain, not in GitHub. In Hostinger:
+**hPanel → Domains → your domain → DNS records**, add:
 
-| Type | Name | Points to / Value | TTL  |
-|------|------|-------------------|------|
-| A    | `@`  | your VPS IP       | auto |
-| A    | `www`| your VPS IP       | auto |
+| Type | Name  | Points to   |
+|------|-------|-------------|
+| A    | `@`   | your VPS IP |
+| A    | `www` | your VPS IP |
 
-DNS can take anywhere from a few minutes to a few hours to take effect.
+DNS can take minutes to a few hours to take effect. Caddy needs the domain to
+resolve to the VPS before it can issue the HTTPS certificate.
 
 ### 3. Run the deploy
-Either push any change to `main`, or go to the **Actions** tab → **Deploy to
-VPS** → **Run workflow**. Watch it go green, then visit `https://yourdomain`.
+Push any change to `main`, or go to the **Actions** tab → **Deploy to VPS** →
+**Run workflow**. It will build the image, push it, install Docker on the VPS
+if needed, and start the container. When it's green, visit `https://yourdomain`.
 
-The first visit may take a few extra seconds while Caddy fetches the HTTPS
-certificate. After that it's instant.
+## How it's wired (the files)
+- **`Dockerfile`** — multi-stage: builds the site with Node, then serves it
+  from a small Caddy image.
+- **`Caddyfile`** — serves `/srv`, with auto-HTTPS for `{$SITE_DOMAIN}`.
+- **`docker-compose.yml`** — runs the image, maps ports 80/443, and keeps a
+  `caddy_data` volume so HTTPS certificates survive restarts.
+- **`.github/workflows/deploy.yml`** — the build + deploy pipeline.
 
 ## Updating the site later
-Just edit and push to `main` (e.g. change `src/config.js`). It redeploys
-automatically. Photos: see the note in `public/photos/` — adding photos
-requires a rebuild, which a push triggers.
+Edit and push to `main` (e.g. change `src/config.js`). It rebuilds the image
+and redeploys automatically.
 
 ## Troubleshooting
-- **Action fails at "Provision web server":** double-check `VPS_HOST`,
-  `VPS_USERNAME`, and `VPS_PASSWORD`. If your VPS blocks root password login,
-  switch to an SSH key (ask and we'll set that up).
-- **Site loads on http but not https:** make sure the DNS A record points to
-  the VPS and has propagated, then re-run the workflow.
-- **"Port 80 already in use":** another web server (Apache/nginx) is running.
-  We can stop/disable it — let me know.
+- **Action fails at the deploy step:** check `VPS_HOST` / `VPS_USERNAME` /
+  `VPS_PASSWORD`. If the VPS blocks root password login, we can switch to an
+  SSH key.
+- **Site on http but not https:** make sure the DNS A record points to the VPS
+  and has propagated, then re-run the workflow. Certs are issued on first
+  request and cached in the `caddy_data` volume.
+- **"port is already allocated" (80/443):** another web server is running on
+  the VPS. Stop/disable it (e.g. `systemctl disable --now apache2 nginx`), then
+  re-run.

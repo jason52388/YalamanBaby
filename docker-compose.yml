@@ -1,0 +1,20 @@
+# NOTE: no top-level `version:` field on purpose — modern/hosted compose
+# parsers reject it. The file starts directly at `services:`.
+services:
+  web:
+    image: ghcr.io/jason52388/yalamanbaby:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      # Explicit env (not env_file) so hosted compose parsers don't drop it.
+      - SITE_DOMAIN=${SITE_DOMAIN}
+    volumes:
+      - caddy_data:/data # persists HTTPS certs across restarts
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

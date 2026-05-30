@@ -7,29 +7,36 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  IMAGE: ghcr.io/jason52388/yalamanbaby
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # allows pushing the image to GitHub Container Registry
     steps:
-      # 1. Get the code
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Build the static site
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      # 1. Build the Docker image and push it to GitHub Container Registry.
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          node-version: 20
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:latest
 
-      - name: Build site
-        run: npm run build
-
-      # 3. (First run + every run) make sure the web server is installed
-      #    and configured on the VPS. This is idempotent — safe to repeat.
-      - name: Provision web server on VPS
+      # 2. Deploy on the VPS: install Docker if needed, then pull & run.
+      - name: Deploy via Docker Compose on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -38,49 +45,46 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             set -e
-            export DEBIAN_FRONTEND=noninteractive
 
-            # Install Caddy (auto-HTTPS web server) if it isn't already there
-            if ! command -v caddy >/dev/null 2>&1; then
-              apt-get update
-              apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg rsync
-              curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-                | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-              curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-                > /etc/apt/sources.list.d/caddy-stable.list
-              apt-get update
-              apt-get install -y caddy
+            # Install Docker (with the compose plugin) if it isn't present.
+            if ! command -v docker >/dev/null 2>&1; then
+              curl -fsSL https://get.docker.com | sh
             fi
 
-            # Make sure rsync exists (used by the file-copy step)
-            command -v rsync >/dev/null 2>&1 || apt-get install -y rsync
+            # Authenticate to GHCR so the VPS can pull the image.
+            echo "${{ secrets.GITHUB_TOKEN }}" \
+              | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-            # Web root for the site
-            mkdir -p /var/www/baby/site
+            # Project directory on the server.
+            mkdir -p /opt/baby
+            cd /opt/baby
 
-            # Write the Caddy config for your domain (auto-HTTPS)
-            cat > /etc/caddy/Caddyfile <<EOF
-            ${{ secrets.SITE_DOMAIN }} {
-                root * /var/www/baby/site
-                file_server
-                try_files {path} /index.html
-                encode gzip
-            }
-            EOF
+            # Write the compose file (no version: field).
+            cat > docker-compose.yml <<'YAML'
+            services:
+              web:
+                image: ghcr.io/jason52388/yalamanbaby:latest
+                restart: unless-stopped
+                ports:
+                  - "80:80"
+                  - "443:443"
+                  - "443:443/udp"
+                environment:
+                  - SITE_DOMAIN=${SITE_DOMAIN}
+                volumes:
+                  - caddy_data:/data
+                  - caddy_config:/config
+            volumes:
+              caddy_data:
+              caddy_config:
+            YAML
 
-            # Apply the config
-            systemctl enable caddy >/dev/null 2>&1 || true
-            systemctl reload caddy || systemctl restart caddy
+            # Provide the domain to compose via its .env file.
+            echo "SITE_DOMAIN=${{ secrets.SITE_DOMAIN }}" > .env
 
-      # 4. Copy the freshly built site up to the VPS web root
-      - name: Upload built site
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          source: "dist/*"
-          target: "/var/www/baby/site"
-          strip_components: 1
-          rm: true   # clear old files first so deletions are reflected
+            # Pull the new image and (re)start the container.
+            docker compose pull
+            docker compose up -d
+
+            # Clean up old image layers to save disk.
+            docker image prune -f
