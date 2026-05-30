@@ -42,16 +42,56 @@ target to match.
 ## One-time setup
 
 ### Secrets (repo → Settings → Secrets and variables → Actions)
-| Secret name    | Value                                                  |
-|----------------|--------------------------------------------------------|
-| `VPS_HOST`     | VPS IP address                                         |
-| `VPS_USER`     | SSH user (e.g. `root`)                                 |
-| `VPS_SSH_KEY`  | The **private** SSH key authorized on the VPS          |
-| `VPS_PATH`     | Where to clone on the VPS (e.g. `/root/yalaman-baby`)  |
-| `SITE_HOSTNAME`| Your domain (e.g. `www.ourbabydomain.com`)             |
+| Secret name        | Value                                                      |
+|--------------------|------------------------------------------------------------|
+| `VPS_HOST`         | VPS IP address                                             |
+| `VPS_USER`         | SSH user (e.g. `root`)                                     |
+| `VPS_SSH_KEY`      | The **private** SSH key authorized on the VPS              |
+| `VPS_PATH`         | Where to clone on the VPS (e.g. `/root/yalaman-baby`)      |
+| `SITE_HOSTNAME`    | Your domain (e.g. `www.ourbabydomain.com`)                 |
+| `BABY_AUTH_HASH`   | bcrypt hash of the shared site password (**required**)     |
+| `BABY_AUTH_COOKIE` | long random login-cookie secret (**required**)             |
+| `PHOTOS_DIR`       | *(optional)* absolute host path for Gallery photos         |
 
 > These mirror the stock site's connection secrets. You can reuse the same
 > `VPS_SSH_KEY` if it's the same server account.
+
+#### Auth secrets — generate before the first deploy
+
+The site's password gate is configured entirely from these two secrets; nothing
+sensitive lives in the (public) repo. The deploy **fails fast** if either is
+missing. Generate them once:
+
+```bash
+docker run --rm caddy caddy hash-password --plaintext 'your-shared-password'  # → BABY_AUTH_HASH
+openssl rand -hex 32                                                          # → BABY_AUTH_COOKIE
+```
+
+Paste the outputs into the two GitHub secrets. To rotate (e.g. if the cookie
+leaks), regenerate `BABY_AUTH_COOKIE`, update the secret, and re-run the deploy
+— every browser is logged out and must re-enter the password.
+
+### Firebase database rules
+
+The Baby Names list lives in Realtime Database. Apply the committed rules so the
+database isn't world-writable as arbitrary storage:
+
+```bash
+npx firebase login
+npx firebase deploy --only database --project yalaman-baby
+```
+
+`database.rules.json` denies everything except the `babyNames/list` node and
+validates writes to a strict, size-bounded shape. There's no Firebase Auth, so
+that node stays publicly readable/writable — for stronger protection, enable
+Firebase App Check or Auth and gate `.write` on it.
+
+### Gallery photos
+
+Photos are personal and gitignored, so they're **not** baked into the image.
+Drop image files into the host folder named by `PHOTOS_DIR` (default
+`/srv/yalaman-photos`) on the VPS; it's mounted read-only into the container and
+served at `/photos/`, and the Gallery page lists them automatically.
 
 ## SSH authentication failure
 
