@@ -1,0 +1,86 @@
+name: Deploy to VPS
+
+# Runs on every push to main, and can also be triggered manually
+# from the GitHub "Actions" tab (Run workflow).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Get the code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Build the static site
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build site
+        run: npm run build
+
+      # 3. (First run + every run) make sure the web server is installed
+      #    and configured on the VPS. This is idempotent — safe to repeat.
+      - name: Provision web server on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+            export DEBIAN_FRONTEND=noninteractive
+
+            # Install Caddy (auto-HTTPS web server) if it isn't already there
+            if ! command -v caddy >/dev/null 2>&1; then
+              apt-get update
+              apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg rsync
+              curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+                | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+              curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+                > /etc/apt/sources.list.d/caddy-stable.list
+              apt-get update
+              apt-get install -y caddy
+            fi
+
+            # Make sure rsync exists (used by the file-copy step)
+            command -v rsync >/dev/null 2>&1 || apt-get install -y rsync
+
+            # Web root for the site
+            mkdir -p /var/www/baby/site
+
+            # Write the Caddy config for your domain (auto-HTTPS)
+            cat > /etc/caddy/Caddyfile <<EOF
+            ${{ secrets.SITE_DOMAIN }} {
+                root * /var/www/baby/site
+                file_server
+                try_files {path} /index.html
+                encode gzip
+            }
+            EOF
+
+            # Apply the config
+            systemctl enable caddy >/dev/null 2>&1 || true
+            systemctl reload caddy || systemctl restart caddy
+
+      # 4. Copy the freshly built site up to the VPS web root
+      - name: Upload built site
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "dist/*"
+          target: "/var/www/baby/site"
+          strip_components: 1
+          rm: true   # clear old files first so deletions are reflected
