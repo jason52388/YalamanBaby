@@ -1,17 +1,9 @@
-# Caddy serves the static site and auto-provisions Let's Encrypt HTTPS.
+# Internal Caddy serves the static site behind the VPS's public reverse proxy.
 #
-# Hostnames are HARDCODED (not {$SITE_HOSTNAME}) — matching the stock-site
-# setup — so an empty/missing env var can never produce an invalid empty site
-# address that crashes Caddy. Both apex and www must have DNS A records
-# pointing at this VPS for HTTPS to succeed (Let's Encrypt needs both).
+# The public Caddy that already owns ports 80/443 should handle domains,
+# redirects, and HTTPS, then proxy this app at yalaman-baby:80 or localhost:8088.
 
-# Bare domain -> redirect to www (canonical), preserving path/query.
-yalamanbaby.com {
-	redir https://www.yalamanbaby.com{uri} permanent
-}
-
-# www -> the actual site.
-www.yalamanbaby.com {
+:80 {
 	root * /srv
 	encode gzip
 	try_files {path} /index.html

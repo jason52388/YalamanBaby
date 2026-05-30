@@ -6,8 +6,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# ── Stage 2: serve it with Caddy (automatic HTTPS) ──
+# ── Stage 2: serve it with Caddy behind the public reverse proxy ──
 FROM caddy:2-alpine
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/dist /srv
-EXPOSE 80 443
+EXPOSE 80

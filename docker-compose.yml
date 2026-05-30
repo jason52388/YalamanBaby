@@ -9,28 +9,20 @@
 #       dirs. The Caddyfile and built site are baked into the image instead.
 #
 # The site is built and served by one image (multi-stage Dockerfile: Node build
-# -> Caddy serve). Caddy owns 80/443 and does its own Let's Encrypt HTTPS.
+# -> Caddy serve). It binds only to localhost so the existing public Caddy on
+# the VPS can keep owning 80/443 and route yalamanbaby.com to this container.
 services:
   web:
     build: .
     container_name: yalaman-baby
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp" # HTTP/3
+      - "127.0.0.1:${BABY_HTTP_PORT:-8088}:80"
     environment:
       - SITE_HOSTNAME=${SITE_HOSTNAME}
-    volumes:
-      - caddy_data:/data # persists HTTPS certs across rebuilds
-      - caddy_config:/config
     networks:
       - baby
 
 networks:
   baby:
     driver: bridge
-
-volumes:
-  caddy_data:
-  caddy_config:

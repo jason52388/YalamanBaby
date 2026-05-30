@@ -7,6 +7,8 @@ name: Deploy to Hostinger VPS
 # Required secrets:
 #   Connection:  VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_PATH
 #   App config:  SITE_HOSTNAME
+# Optional secrets:
+#   BABY_HTTP_PORT defaults to 8088
 #
 # SITE_HOSTNAME is written to .env on every deploy, so the server never needs
 # manual configuration — change a secret, push, done. (The live hostname is
@@ -26,16 +28,45 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Validate deploy secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          SITE_HOSTNAME: ${{ secrets.SITE_HOSTNAME }}
+          BABY_HTTP_PORT: ${{ secrets.BABY_HTTP_PORT }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_PATH SITE_HOSTNAME; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required repository secret: $name"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          if ! printf '%s\n' "$VPS_SSH_KEY" | grep -q -- '-----BEGIN .*PRIVATE KEY-----'; then
+            echo "::error::VPS_SSH_KEY must contain the private key, including BEGIN/END lines."
+            exit 1
+          fi
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           SITE_HOSTNAME: ${{ secrets.SITE_HOSTNAME }}
+          BABY_HTTP_PORT: ${{ secrets.BABY_HTTP_PORT }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 15m
-          envs: SITE_HOSTNAME
+          envs: SITE_HOSTNAME,BABY_HTTP_PORT
           script: |
             set -euo pipefail
 
@@ -58,6 +89,7 @@ jobs:
             umask 077
             cat > .env <<EOF
             SITE_HOSTNAME=${SITE_HOSTNAME}
+            BABY_HTTP_PORT=${BABY_HTTP_PORT:-8088}
             EOF
 
             docker compose up -d --build
