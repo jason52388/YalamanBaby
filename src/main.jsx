@@ -7,6 +7,7 @@ import Progress from './pages/Progress.jsx';
 import Tips from './pages/Tips.jsx';
 import Diet from './pages/Diet.jsx';
 import Gallery from './pages/Gallery.jsx';
+import Names from './pages/Names.jsx';
 import './styles/theme.css';
 
 // HashRouter keeps deep links working on static hosts (GitHub Pages, etc.)
@@ -21,6 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="tips" element={<Tips />} />
           <Route path="diet" element={<Diet />} />
           <Route path="gallery" element={<Gallery />} />
+          <Route path="names" element={<Names />} />
         </Route>
       </Routes>
     </HashRouter>

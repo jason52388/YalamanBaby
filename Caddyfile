@@ -4,6 +4,12 @@
 # redirects, and HTTPS, then proxy this app at yalaman-baby:80 or localhost:8088.
 
 :80 {
+	# Restrict the whole site to invited viewers (shared login).
+	# Generate new hashes with: docker run --rm caddy caddy hash-password --plaintext 'yourpass'
+	basic_auth {
+		yalaman $2b$12$PdaLRfTeTHaWWm4czrIDRu6tvoD3iYuMIrvFsyFSKOkwMUF3B7obu
+	}
+
 	root * /srv
 	encode gzip
 	try_files {path} /index.html

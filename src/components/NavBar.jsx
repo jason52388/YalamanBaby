@@ -7,6 +7,7 @@ const links = [
   { to: '/tips', label: 'Tips & Tricks' },
   { to: '/diet', label: "Diet & Do's" },
   { to: '/gallery', label: 'Gallery' },
+  { to: '/names', label: 'Names' },
 ];
 
 export default function NavBar() {
