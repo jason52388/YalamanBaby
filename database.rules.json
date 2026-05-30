@@ -1,0 +1,31 @@
+{
+  "//": "Realtime Database security rules. Deploy with: firebase deploy --only database",
+  "//2": "The app has no Firebase Auth, so reads/writes to the names node stay open — but everything else is denied, and writes are validated to a strict shape with bounded sizes so the DB can't be used as arbitrary storage. For real protection, enable Firebase App Check or Auth and gate .write on it.",
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "babyNames": {
+      "list": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['items']) || newData.val() == null",
+        "items": {
+          "$index": {
+            ".validate": "newData.hasChildren(['id', 'name', 'gender'])",
+            "id": { ".validate": "newData.isString() && newData.val().length <= 64" },
+            "name": { ".validate": "newData.isString() && newData.val().length <= 100" },
+            "gender": { ".validate": "newData.val() == 'boy' || newData.val() == 'girl' || newData.val() == 'unisex'" },
+            "origin": { ".validate": "newData.isString() && newData.val().length <= 200" },
+            "meaning": { ".validate": "newData.isString() && newData.val().length <= 500" },
+            "addedAt": { ".validate": "newData.isNumber()" },
+            "rank": { ".validate": "newData.isNumber()" },
+            "pending": { ".validate": "newData.isBoolean()" },
+            "$other": { ".validate": false }
+          }
+        },
+        "updatedAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
