@@ -92,6 +92,11 @@ jobs:
             BABY_HTTP_PORT=${BABY_HTTP_PORT:-8088}
             EOF
 
+            # Make sure the shared proxy network exists (idempotent — no-op
+            # if it's already there). warren-caddy joins this same network so
+            # it can reverse_proxy to yalaman-baby:80 by container name.
+            docker network create proxy-shared 2>/dev/null || true
+
             docker compose up -d --build
 
             docker image prune -f

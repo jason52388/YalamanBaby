@@ -2,30 +2,29 @@
 #
 # NOTE: No `version:` field — Hostinger's compose parser rejects it.
 # NOTE: Explicit `environment:` (not `env_file:`) — Hostinger silently drops
-#       env_file. SITE_HOSTNAME is forwarded for parity; the live hostname is
-#       hardcoded in the Caddyfile to avoid an empty-env crash.
+#       env_file.
 # NOTE: Named volumes (not bind mounts) — Hostinger runs containers from a path
 #       that lacks the repo files, so relative bind mounts resolve to empty
 #       dirs. The Caddyfile and built site are baked into the image instead.
 #
-# The site is built and served by one image (multi-stage Dockerfile: Node build
-# -> Caddy serve). It binds only to localhost so the existing public Caddy on
-# the VPS can keep owning 80/443 and route yalamanbaby.com to this container.
+# This container exposes NO host ports. It serves on port 80 internally and
+# joins the shared external `proxy-shared` Docker network so the public
+# warren-caddy (on the same VPS) can reverse_proxy to it by container name.
 services:
   web:
     build: .
     container_name: yalaman-baby
     restart: unless-stopped
-    ports:
-      # Bind to the docker0 bridge gateway (NOT 127.0.0.1) so warren-caddy on
-      # its own bridge network can reach it; still not reachable from the
-      # public internet because 172.17.0.1 is a private host interface.
-      - "172.17.0.1:${BABY_HTTP_PORT:-8088}:80"
     environment:
       - SITE_HOSTNAME=${SITE_HOSTNAME}
     networks:
       - baby
+      - proxy-shared
 
 networks:
   baby:
     driver: bridge
+  # Shared with warren-caddy so the public reverse proxy can reach this app.
+  # Created by the deploy workflow if it doesn't already exist.
+  proxy-shared:
+    external: true
