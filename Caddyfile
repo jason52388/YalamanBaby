@@ -9,32 +9,34 @@
 	# plants a long-lived cookie, so the same browser stays logged in
 	# for a year and never re-prompts — even after you close it.
 	#
+	# Deny-by-default: anything without the valid cookie is bounced to
+	# /unlock. Only requests carrying the secret cookie reach the site.
+	#
 	# Security: the password is only stored as a bcrypt hash, and the
 	# cookie holds a long random secret (HttpOnly, so page scripts
-	# can't read it). Rotate either by changing the values below.
+	# can't read it). Rotate by changing the password hash + secret.
 	#
 	# New password hash:
 	#   docker run --rm caddy caddy hash-password --plaintext 'yourpass'
 
-	# A browser is "logged in" once it carries this secret cookie.
-	@authed header_regexp Cookie "babyauth=9adac9ba34d0f1cc55cf60a5fef0d29ad5f7e3a4dc73f6f4d2c41c2f7626c5be"
-
-	# /unlock — ask for the password, then set the year-long cookie.
-	# `route` keeps these steps in order: reject first, set cookie only
-	# after a correct password, then bounce to the home page.
+	# 1) /unlock — ask for the password, then set the year-long cookie.
 	@unlock path /unlock
 	handle @unlock {
-		route {
-			basic_auth {
-				yalaman $2b$12$PdaLRfTeTHaWWm4czrIDRu6tvoD3iYuMIrvFsyFSKOkwMUF3B7obu
-			}
-			header +Set-Cookie "babyauth=9adac9ba34d0f1cc55cf60a5fef0d29ad5f7e3a4dc73f6f4d2c41c2f7626c5be; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
-			redir / 302
+		basic_auth {
+			yalaman $2b$12$PdaLRfTeTHaWWm4czrIDRu6tvoD3iYuMIrvFsyFSKOkwMUF3B7obu
 		}
+		header +Set-Cookie "babyauth=9adac9ba34d0f1cc55cf60a5fef0d29ad5f7e3a4dc73f6f4d2c41c2f7626c5be; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
+		redir / 302
 	}
 
-	# Logged-in browsers get the site.
-	handle @authed {
+	# 2) No valid cookie → go log in.
+	@noauth not header_regexp Cookie "babyauth=9adac9ba34d0f1cc55cf60a5fef0d29ad5f7e3a4dc73f6f4d2c41c2f7626c5be"
+	handle @noauth {
+		redir /unlock 302
+	}
+
+	# 3) Logged-in browsers get the site.
+	handle {
 		root * /srv
 		encode gzip
 		try_files {path} /index.html
@@ -42,10 +44,5 @@
 
 		# Light caching so a redeploy shows new content within a minute.
 		header /*.html Cache-Control "public, max-age=60"
-	}
-
-	# Everyone else → go log in.
-	handle {
-		redir /unlock 302
 	}
 }
