@@ -1,37 +1,34 @@
-// Names storage: Firebase Firestore (shared & live) if configured,
+// Names storage: Firebase Realtime Database (shared & live) if configured,
 // localStorage fallback (per-device) if not.
 //
-// Single document: collection "babyNames", document "list" with field
-// `items: [...]`. We store the whole list as one document because it's small
-// (<100 names) and one round-trip per change is fine for a personal list —
-// dramatically simpler than per-name docs.
+// Stored at path  babyNames/list  as  { items: [...], updatedAt }.
+// The whole list lives in one node — it's small (<100 names) and one
+// round-trip per change is plenty for a personal list.
 
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { db, isConfigured } from '../firebase.js';
+import { ref, onValue, set } from 'firebase/database';
+import { rtdb, isConfigured } from '../firebase.js';
 
 const LS_KEY = 'yalaman-baby-names-v1';
-const COLLECTION = 'babyNames';
-const DOC_ID = 'list';
+const PATH = 'babyNames/list';
 
-/** Whether shared cloud storage is on. UI can show a status badge. */
+/** Whether shared cloud storage is on. UI shows a status badge. */
 export const sharedMode = isConfigured;
 
 /**
- * Subscribe to the names list. `cb(items)` fires on every remote change.
- * Returns an unsubscribe function.
+ * Subscribe to the names list. `cb(items)` fires once immediately and again
+ * on every remote change. Returns an unsubscribe function.
  */
 export function subscribeNames(cb) {
   if (isConfigured) {
-    const ref = doc(db(), COLLECTION, DOC_ID);
-    return onSnapshot(
-      ref,
+    const node = ref(rtdb(), PATH);
+    // onValue returns its own unsubscribe function.
+    return onValue(
+      node,
       (snap) => {
-        const data = snap.data();
+        const data = snap.val();
         cb(Array.isArray(data?.items) ? data.items : []);
       },
-      (err) => {
-        console.error('[names] Firestore subscription error:', err);
-      }
+      (err) => console.error('[names] Realtime DB subscription error:', err)
     );
   }
   // Fallback: read once from localStorage, no live updates.
@@ -47,8 +44,7 @@ export function subscribeNames(cb) {
 /** Persist the names list. */
 export async function saveNames(items) {
   if (isConfigured) {
-    const ref = doc(db(), COLLECTION, DOC_ID);
-    await setDoc(ref, { items, updatedAt: Date.now() });
+    await set(ref(rtdb(), PATH), { items, updatedAt: Date.now() });
     return;
   }
   try {

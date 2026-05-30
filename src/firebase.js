@@ -4,34 +4,39 @@
 //  Get these from the Firebase Console:
 //    Project settings → Your apps → SDK setup and configuration
 //
-//  All of these values are SAFE to commit to a public repo — they identify
-//  the project, they aren't secrets. Access control is enforced server-side
-//  by your Firestore security rules.
+//  Because we use the REALTIME DATABASE, you MUST include `databaseURL`
+//  (it looks like https://<project>-default-rtdb.firebaseio.com — shown in
+//  Build → Realtime Database, and in the SDK config snippet).
 //
-//  Until you fill these in, the Names page falls back to per-device browser
-//  storage (still works, just not shared between you and Erika).
+//  All of these values are SAFE to commit to a public repo — they identify
+//  the project, they aren't secrets. Access is governed by your database
+//  rules (and, here, by the site's password gate).
+//
+//  Until projectId + databaseURL are filled in, the Names page falls back to
+//  per-device browser storage.
 // ─────────────────────────────────────────────────────────────
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 
 export const firebaseConfig = {
   apiKey: '',
   authDomain: '',
+  databaseURL: '', // ← required for Realtime Database
   projectId: '',
   storageBucket: '',
   messagingSenderId: '',
   appId: '',
 };
 
-export const isConfigured = Boolean(firebaseConfig.projectId);
+export const isConfigured = Boolean(firebaseConfig.databaseURL && firebaseConfig.projectId);
 
 let _db = null;
-export function db() {
+export function rtdb() {
   if (!isConfigured) return null;
   if (!_db) {
     const app = initializeApp(firebaseConfig);
-    _db = getFirestore(app);
+    _db = getDatabase(app);
   }
   return _db;
 }
