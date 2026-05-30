@@ -247,9 +247,6 @@ export default function Names() {
       </div>
 
       <div className="name-toolbar">
-        <button className="btn-link" onClick={() => exportJson(list)}>⤓ Export list</button>
-        <button className="btn-link" onClick={() => fileRef.current?.click()}>⤒ Import / merge</button>
-        <input ref={fileRef} type="file" accept="application/json" onChange={handleImport} hidden />
         <span className="hint">
           {sharedMode
             ? '☁️  Synced live — both of you see every change.'
