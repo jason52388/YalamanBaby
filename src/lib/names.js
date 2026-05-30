@@ -5,18 +5,11 @@
 // Order within a gender column = rank (index 0 is #1).
 
 export function uid() {
+  // Prefer a real UUID where available; fall back for very old browsers.
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-}
-
-export function addName(list, { name, gender, origin = '', meaning = '' }) {
-  return [...list, {
-    id: uid(),
-    name: name.trim(),
-    gender,
-    origin: origin.trim(),
-    meaning: meaning.trim(),
-    addedAt: Date.now(),
-  }];
 }
 
 export function updateName(list, id, patch) {
@@ -60,34 +53,4 @@ export function viewColumn(list, gender, mode = 'rank') {
   if (mode === 'alpha') return [...ranked].sort((a, b) => a.name.localeCompare(b.name));
   if (mode === 'newest') return [...ranked].sort((a, b) => b.addedAt - a.addedAt);
   return ranked;
-}
-
-export function exportJson(list) {
-  const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `baby-names-${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-export function mergeImport(current, incoming) {
-  if (!Array.isArray(incoming)) return current;
-  const key = (n) => `${n.gender}::${n.name.trim().toLowerCase()}`;
-  const seen = new Set(current.map(key));
-  const additions = incoming
-    .filter((n) => n && n.name && n.gender)
-    .filter((n) => !seen.has(key(n)))
-    .map((n) => ({
-      id: uid(),
-      name: String(n.name).trim(),
-      gender: ['boy', 'girl', 'unisex'].includes(n.gender) ? n.gender : 'unisex',
-      origin: String(n.origin || '').trim(),
-      meaning: String(n.meaning || '').trim(),
-      addedAt: Number(n.addedAt) || Date.now(),
-    }));
-  return [...current, ...additions];
 }
