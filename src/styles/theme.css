@@ -170,6 +170,26 @@ a { color: var(--pink-deep); }
   font-weight: 600;
 }
 
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .9rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-btn:hover { color: var(--ink); }
+
 ul.clean { list-style: none; padding: 0; margin: 0; }
 ul.clean li { padding: .5rem 0; border-bottom: 1px dashed var(--cream-deep); }
 ul.clean li:last-child { border-bottom: none; }
