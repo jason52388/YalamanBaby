@@ -89,9 +89,26 @@ Firebase App Check or Auth and gate `.write` on it.
 ### Gallery photos
 
 Photos are personal and gitignored, so they're **not** baked into the image.
-Drop image files into the host folder named by `PHOTOS_DIR` (default
-`/srv/yalaman-photos`) on the VPS; it's mounted read-only into the container and
-served at `/photos/`, and the Gallery page lists them automatically.
+They live in the host folder named by `PHOTOS_DIR` (default `/srv/yalaman-photos`)
+on the VPS. The `web` (Caddy) container mounts it **read-only** and serves it at
+`/photos/`; the `uploader` container mounts the same folder **read-write**.
+
+There are two ways to add photos:
+
+1. **From the site (recommended, works on phones).** Log in, open the Gallery
+   page, and tap **＋ Add photos**. The browser POSTs the file to `/api/upload`,
+   which Caddy proxies — *only from inside the authenticated block* — to the
+   `uploader` service (`server/upload.mjs`). That service re-checks the auth
+   cookie, sniffs the file's magic bytes (JPG/PNG/WebP/GIF only), enforces a
+   size cap, generates a safe filename, and writes it into `PHOTOS_DIR`. No
+   public storage bucket is involved; uploads are gated by the same shared
+   password as the rest of the site.
+2. **Directly on the server.** Drop image files into the `PHOTOS_DIR` folder on
+   the VPS and they appear in the Gallery automatically.
+
+The uploader is **not** published to a host port or attached to `proxy-shared`,
+so it is unreachable except through the gated `web` container. The upload size
+limit defaults to 20 MB (`UPLOAD_MAX_BYTES`).
 
 ## SSH authentication failure
 

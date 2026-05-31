@@ -28,10 +28,28 @@ services:
     volumes:
       # Personal photos live on the VPS only (gitignored). Mount an absolute
       # host path so the Gallery can serve them; defaults to /srv/yalaman-photos.
+      # Read-only here — only the uploader service writes new files.
       - ${PHOTOS_DIR:-/srv/yalaman-photos}:/srv/photos:ro
     networks:
       - baby
       - proxy-shared
+
+  # Receives photo uploads from the Gallery page and writes them into the same
+  # photos folder. Caddy only proxies /api/* to it from inside the authenticated
+  # block, so it inherits the site's password gate (and re-checks the cookie
+  # itself for defense-in-depth). Not published or attached to proxy-shared, so
+  # it is unreachable except via the gated web container.
+  uploader:
+    build: ./server
+    container_name: yalaman-uploader
+    restart: unless-stopped
+    environment:
+      - BABY_AUTH_COOKIE=${BABY_AUTH_COOKIE}
+    volumes:
+      # Same host path as the web container, but READ-WRITE so it can save.
+      - ${PHOTOS_DIR:-/srv/yalaman-photos}:/srv/photos:rw
+    networks:
+      - baby
 
 networks:
   baby:
