@@ -1,20 +1,49 @@
+import { useState } from 'react';
 import Section from '../components/Section.jsx';
-import { tipSections, warningSigns } from '../data/tips.js';
+import { config } from '../config.js';
+import { computeWeek } from '../lib/pregnancy.js';
+import {
+  tipSections,
+  sectionsForWeek,
+  tipText,
+  warningSigns,
+} from '../data/tips.js';
 
 export default function Tips() {
+  const p = computeWeek(config.dueDate);
+  const hasWeek = p.valid && p.week > 0 && p.week < 41;
+  const [showAll, setShowAll] = useState(false);
+
+  const sections = hasWeek && !showAll ? sectionsForWeek(p.week) : tipSections;
+
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Tips & Tricks</h1>
+        <h1>Tips &amp; Tricks</h1>
         <p>Gentle, practical ideas for navigating the ups and downs of pregnancy.</p>
       </div>
 
+      {hasWeek && (
+        <div className="filter-bar">
+          <span className="pill">
+            {showAll ? 'All tips' : `Most relevant for week ${p.week}`}
+          </span>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => setShowAll((v) => !v)}
+          >
+            {showAll ? `Show week ${p.week} only` : 'Show all tips'}
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-2">
-        {tipSections.map((s) => (
+        {sections.map((s) => (
           <Section key={s.title} emoji={s.emoji} title={s.title}>
             <ul className="clean">
-              {s.tips.map((t, i) => (
-                <li key={i}>{t}</li>
+              {s.tips.map((t) => (
+                <li key={tipText(t)}>{tipText(t)}</li>
               ))}
             </ul>
           </Section>
