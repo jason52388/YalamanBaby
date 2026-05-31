@@ -104,47 +104,69 @@ a { color: var(--pink-deep); }
   width: 100%;
   background: var(--ink);
   border-radius: 2px;
-  transition: transform .25s ease, opacity .2s ease;
 }
-.nav-toggle.is-open .bar:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
-.nav-toggle.is-open .bar:nth-child(2) { opacity: 0; }
-.nav-toggle.is-open .bar:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
 
 .nav-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(50, 40, 38, 0.4);
-  z-index: 35;
-  animation: fade .2s ease;
+  z-index: 45;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, visibility .25s;
+}
+.nav-backdrop.is-open {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Pop-out drawer: a compact panel that slides in from the right and only
-   covers as much as the links need — never the whole page. */
+   covers part of the screen — never the whole page. Hidden off-canvas by
+   default; the .is-open class slides it in. Portaled to <body>, so it sits
+   above everything and isn't clipped by the header's backdrop-filter. */
 .nav-links.mobile {
   position: fixed;
   top: 0;
   right: 0;
   height: 100%;
   width: min(72vw, 280px);
+  display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: .15rem;
   background: var(--white);
   box-shadow: -8px 0 28px rgba(168, 140, 130, 0.22);
-  padding: 4.75rem .75rem 1.25rem;
-  z-index: 38;
+  padding: 3.75rem .75rem 1.25rem;
+  z-index: 46;
   overflow-y: auto;
-  animation: drawer-in .25s ease;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform .25s ease, visibility .25s;
+}
+.nav-links.mobile.is-open {
+  transform: translateX(0);
+  visibility: visible;
 }
 .nav-links.mobile a {
   font-size: 1.05rem;
   padding: .85rem 1rem;
   border-radius: 12px;
 }
-@keyframes drawer-in {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
+.drawer-close {
+  position: absolute;
+  top: .6rem;
+  right: .75rem;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: var(--cream-deep);
+  color: var(--ink);
+  border-radius: 12px;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
 }
+.drawer-close:hover { background: var(--pink); }
 
 /* ── Page scaffolding ── */
 .page { padding: 2.5rem 0 4rem; animation: fade .4s ease; }

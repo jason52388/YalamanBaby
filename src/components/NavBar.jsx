@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink, useLocation } from 'react-router-dom';
 import { config } from '../config.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
@@ -13,7 +14,7 @@ const links = [
 ];
 
 export default function NavBar() {
-  // Logic that decides which navigation to render: a tap-to-open menu on
+  // Logic that decides which navigation to render: a tap-to-open drawer on
   // phones, the full inline link row on larger screens.
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
@@ -30,7 +31,7 @@ export default function NavBar() {
     if (!isMobile) setOpen(false);
   }, [isMobile]);
 
-  // Prevent the page behind an open mobile menu from scrolling.
+  // Prevent the page behind an open mobile drawer from scrolling.
   useEffect(() => {
     if (isMobile && open) {
       document.body.style.overflow = 'hidden';
@@ -51,26 +52,48 @@ export default function NavBar() {
           <>
             <button
               type="button"
-              className={`nav-toggle ${open ? 'is-open' : ''}`}
-              aria-label={open ? 'Close menu' : 'Open menu'}
+              className="nav-toggle"
+              aria-label="Open menu"
               aria-expanded={open}
               aria-controls="mobile-menu"
-              onClick={() => setOpen((v) => !v)}
+              onClick={() => setOpen(true)}
             >
               <span className="bar" />
               <span className="bar" />
               <span className="bar" />
             </button>
 
-            {open && <div className="nav-backdrop" onClick={() => setOpen(false)} />}
-
-            <div id="mobile-menu" className={`nav-links mobile ${open ? 'is-open' : ''}`}>
-              {links.map((l) => (
-                <NavLink key={l.to} to={l.to} end={l.end}>
-                  {l.label}
-                </NavLink>
-              ))}
-            </div>
+            {/* The drawer + backdrop are portaled to <body> so they aren't
+                trapped inside the header's backdrop-filter containing block
+                (which would clip a position:fixed child to the header). */}
+            {createPortal(
+              <>
+                <div
+                  className={`nav-backdrop ${open ? 'is-open' : ''}`}
+                  onClick={() => setOpen(false)}
+                />
+                <div
+                  id="mobile-menu"
+                  className={`nav-links mobile ${open ? 'is-open' : ''}`}
+                  aria-hidden={!open}
+                >
+                  <button
+                    type="button"
+                    className="drawer-close"
+                    aria-label="Close menu"
+                    onClick={() => setOpen(false)}
+                  >
+                    ×
+                  </button>
+                  {links.map((l) => (
+                    <NavLink key={l.to} to={l.to} end={l.end} tabIndex={open ? 0 : -1}>
+                      {l.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </>,
+              document.body,
+            )}
           </>
         ) : (
           <div className="nav-links">
