@@ -7,9 +7,16 @@
 #       that lacks the repo files, so relative bind mounts resolve to empty
 #       dirs. The Caddyfile and built site are baked into the image instead.
 #
-# This container exposes NO host ports. It serves on port 80 internally and
-# joins the shared external `proxy-shared` Docker network so the public
-# warren-caddy (on the same VPS) can reverse_proxy to it by container name.
+# Reachable from the public warren-caddy proxy two ways, so it works whichever
+# the proxy is configured for:
+#   1. By host port — published on the docker bridge gateway at
+#      172.17.0.1:${BABY_HTTP_PORT:-8088}, matching the `reverse_proxy
+#      172.17.0.1:8088` route documented in DEPLOY.md (the original setup).
+#   2. By container name — joins the shared external `proxy-shared` network so
+#      warren-caddy can `reverse_proxy yalaman-baby:80` directly.
+# The host port was previously removed in favour of (2) alone, but the public
+# proxy was never repointed, so it kept forwarding to the now-dead :8088 and the
+# site went blank. Binding both restores the documented path without a VPS edit.
 services:
   web:
     build: .
@@ -21,6 +28,11 @@ services:
       # shell env (GitHub secrets) — never committed. See DEPLOY.md.
       - BABY_AUTH_HASH=${BABY_AUTH_HASH}
       - BABY_AUTH_COOKIE=${BABY_AUTH_COOKIE}
+    # Publish on the docker bridge gateway only (not 0.0.0.0): reachable by the
+    # warren-caddy container via 172.17.0.1:8088, but not exposed on the VPS's
+    # public interface. The app's own /unlock password gate still guards content.
+    ports:
+      - "172.17.0.1:${BABY_HTTP_PORT:-8088}:80"
     volumes:
       # Personal photos live on the VPS only (gitignored). Mount an absolute
       # host path so the Gallery can serve them; defaults to /srv/yalaman-photos.
