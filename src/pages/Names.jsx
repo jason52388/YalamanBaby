@@ -83,7 +83,7 @@ function Popularity({ name }) {
 // ─────────────────────────────────────────────────────────────
 //  A single name row (expandable, with inline edit)
 // ─────────────────────────────────────────────────────────────
-function NameRow({ entry, canReorder, drag, onUpdate, onDelete, onMoveUp, onMoveDown }) {
+function NameRow({ entry, canReorder, drag, onUpdate, onRename, onDelete, onMoveUp, onMoveDown }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -99,12 +99,21 @@ function NameRow({ entry, canReorder, drag, onUpdate, onDelete, onMoveUp, onMove
     setOpen(true);
   }
   function save() {
-    if (!draft.name.trim()) return;
-    onUpdate(entry.id, {
-      name: draft.name.trim(),
-      origin: draft.origin.trim(),
-      meaning: draft.meaning.trim(),
-    });
+    const name = draft.name.trim();
+    if (!name) return;
+    const origin = (draft.origin || '').trim();
+    const meaning = (draft.meaning || '').trim();
+    const nameChanged = name.toLowerCase() !== entry.name.toLowerCase();
+    const descEdited = origin !== (entry.origin || '') || meaning !== (entry.meaning || '');
+
+    // If the name changed and the description wasn't hand-edited, re-look up the
+    // origin & meaning for the new name (popularity refreshes automatically).
+    // Otherwise just save exactly what was typed.
+    if (nameChanged && !descEdited) {
+      onRename(entry.id, name);
+    } else {
+      onUpdate(entry.id, { name, origin, meaning });
+    }
     setEditing(false);
   }
   function remove() {
@@ -163,6 +172,10 @@ function NameRow({ entry, canReorder, drag, onUpdate, onDelete, onMoveUp, onMove
               <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Name" />
               <input value={draft.origin} onChange={(e) => setDraft({ ...draft, origin: e.target.value })} placeholder="Origin" />
               <input value={draft.meaning} onChange={(e) => setDraft({ ...draft, meaning: e.target.value })} placeholder="Meaning / notes" />
+              <small style={{ color: 'var(--ink-soft)' }}>
+                Tip: change just the name and leave the rest blank/unchanged — we’ll
+                refresh the origin, meaning &amp; popularity for you.
+              </small>
               <div className="form-row">
                 <button onClick={save} className="btn-primary">Save</button>
                 <button onClick={() => setEditing(false)} className="btn-link">Cancel</button>
@@ -218,6 +231,7 @@ function Column({ column, list, sort, setSort, ...handlers }) {
               canReorder={canReorder}
               drag={drag}
               onUpdate={handlers.onUpdate}
+              onRename={handlers.onRename}
               onDelete={handlers.onDelete}
               onMoveUp={(id) => handlers.onMove(id, -1)}
               onMoveDown={(id) => handlers.onMove(id, +1)}
@@ -253,21 +267,18 @@ export default function Names() {
     mutateNames(fn);
   }
 
-  // Add a name, then auto-pull its origin/meaning (dictionary first, then a
-  // live Wikipedia lookup) and patch it in when it resolves.
-  async function onAdd({ name, gender }) {
-    const id = uid();
+  // Resolve a name's origin & meaning and patch it into the entry: try the
+  // built-in dictionary first (instant), then fall back to a live Wikipedia
+  // lookup. Shared by adding a name and by editing/renaming one.
+  async function resolveMeaning(id, name) {
     const dict = lookupMeaning(name);
-    const entry = {
-      id, name, gender,
+    mutate((l) => updateName(l, id, {
       origin: dict?.origin || '',
       meaning: dict?.meaning || '',
       // Mark as still-resolving when we have no instant dictionary hit, so the
       // row can show "Looking up…" instead of "No description".
       pending: !dict,
-      addedAt: Date.now(),
-    };
-    mutate((l) => [...l, entry]);
+    }));
 
     if (!dict) {
       let found = null;
@@ -282,8 +293,27 @@ export default function Names() {
     }
   }
 
+  // Add a name, then auto-pull its origin/meaning (and popularity, which is
+  // derived from the name at render time).
+  async function onAdd({ name, gender }) {
+    const id = uid();
+    mutate((l) => [
+      ...l,
+      { id, name, gender, origin: '', meaning: '', pending: true, addedAt: Date.now() },
+    ]);
+    await resolveMeaning(id, name);
+  }
+
+  // Rename an existing entry and refresh its origin/meaning to match the new
+  // name. (Popularity updates on its own since it reads from the name.)
+  async function onRename(id, name) {
+    mutate((l) => updateName(l, id, { name }));
+    await resolveMeaning(id, name);
+  }
+
   const handlers = {
     onAdd,
+    onRename,
     onUpdate: (id, patch) => mutate((l) => updateName(l, id, patch)),
     onDelete: (id) => mutate((l) => deleteName(l, id)),
     onMove: (id, dir) => mutate((l) => moveName(l, id, dir)),
