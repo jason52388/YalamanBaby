@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
-  uid, updateName, deleteName, moveName,
+  uid, updateName, deleteName, moveName, reorderName,
   viewColumn,
 } from '../lib/names.js';
-import { subscribeNames, saveNames, sharedMode } from '../lib/namesStore.js';
+import { subscribeNames, mutateNames, sharedMode } from '../lib/namesStore.js';
 import { lookupMeaning } from '../data/nameMeanings.js';
+import { lookupPopularity } from '../data/namePopularity.js';
 import { lookupNameAuto } from '../lib/lookupName.js';
 
 const COLUMNS = [
@@ -62,11 +63,30 @@ function AddForm({ gender, onAdd }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  US popularity (from SSA data) — shown when a name is expanded
+// ─────────────────────────────────────────────────────────────
+function Popularity({ name }) {
+  const p = lookupPopularity(name);
+  if (!p) return null;
+  return (
+    <p className="pop">
+      📊{' '}
+      {p.rank
+        ? <>US <strong>#{p.rank}</strong> in {p.year}</>
+        : <>outside the top names in {p.year}</>}
+      {' · '}
+      peaked in <strong>{p.peakYear}</strong> at {p.peakPct}% of US babies
+    </p>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 //  A single name row (expandable, with inline edit)
 // ─────────────────────────────────────────────────────────────
-function NameRow({ entry, onUpdate, onDelete, onMoveUp, onMoveDown }) {
+function NameRow({ entry, canReorder, drag, onUpdate, onDelete, onMoveUp, onMoveDown }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [draft, setDraft] = useState({
     name: entry.name,
     origin: entry.origin,
@@ -92,8 +112,17 @@ function NameRow({ entry, onUpdate, onDelete, onMoveUp, onMoveDown }) {
   }
 
   return (
-    <div className={`name-row ${open ? 'open' : ''}`}>
+    <div
+      className={`name-row ${open ? 'open' : ''} ${dragOver ? 'drag-over' : ''}`}
+      draggable={canReorder}
+      onDragStart={(e) => { if (canReorder) { e.dataTransfer.effectAllowed = 'move'; drag.onStart(entry.id); } }}
+      onDragEnd={() => { if (canReorder) { setDragOver(false); drag.onEnd(); } }}
+      onDragOver={(e) => { if (canReorder && drag.activeId && drag.activeId !== entry.id) { e.preventDefault(); setDragOver(true); } }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { if (canReorder) { e.preventDefault(); setDragOver(false); drag.onDrop(entry.id); } }}
+    >
       <button className="name-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+        {canReorder && <span className="grip" aria-hidden="true" title="Drag to reorder">⠿</span>}
         <span className="rank">#{entry.rank}</span>
         <span className="name-text">{entry.name}</span>
         <span className="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
@@ -116,12 +145,17 @@ function NameRow({ entry, onUpdate, onDelete, onMoveUp, onMoveDown }) {
                   </>
                 )}
               </p>
+              <Popularity name={entry.name} />
               <div className="row-actions">
                 <button onClick={startEdit} className="btn-link">Edit</button>
                 <button onClick={remove} className="btn-link danger">Delete</button>
-                <span className="spacer" />
-                <button onClick={() => onMoveUp(entry.id)} title="Move up" className="btn-icon">↑</button>
-                <button onClick={() => onMoveDown(entry.id)} title="Move down" className="btn-icon">↓</button>
+                {canReorder && (
+                  <>
+                    <span className="spacer" />
+                    <button onClick={() => onMoveUp(entry.id)} title="Move up" className="btn-icon">↑</button>
+                    <button onClick={() => onMoveDown(entry.id)} title="Move down" className="btn-icon">↓</button>
+                  </>
+                )}
               </div>
             </>
           ) : (
@@ -146,6 +180,22 @@ function NameRow({ entry, onUpdate, onDelete, onMoveUp, onMoveDown }) {
 // ─────────────────────────────────────────────────────────────
 function Column({ column, list, sort, setSort, ...handlers }) {
   const rows = viewColumn(list, column.gender, sort);
+  // Reordering only makes sense against the manual ("rank") order — when the
+  // column is sorted A→Z or by newest, the arrows would move rows relative to
+  // an order the user can't see, so we hide them.
+  const canReorder = sort === 'rank';
+
+  const [activeId, setActiveId] = useState(null);
+  const drag = {
+    activeId,
+    onStart: (id) => setActiveId(id),
+    onEnd: () => setActiveId(null),
+    onDrop: (targetId) => {
+      if (activeId && activeId !== targetId) handlers.onReorder(activeId, targetId);
+      setActiveId(null);
+    },
+  };
+
   return (
     <div className="card name-col">
       <header className="col-head">
@@ -165,6 +215,8 @@ function Column({ column, list, sort, setSort, ...handlers }) {
             <NameRow
               key={entry.id}
               entry={entry}
+              canReorder={canReorder}
+              drag={drag}
               onUpdate={handlers.onUpdate}
               onDelete={handlers.onDelete}
               onMoveUp={(id) => handlers.onMove(id, -1)}
@@ -192,15 +244,13 @@ export default function Names() {
     return unsub;
   }, []);
 
-  // Optimistic-update helper: apply the transform locally for snappy UX,
-  // then push to storage. The next snapshot from the store will match what
-  // we already have, so no flicker.
+  // Optimistic-update helper: apply the transform locally for snappy UX, then
+  // persist the same pure transform atomically. The store re-runs `fn` against
+  // the latest stored value, so concurrent edits merge instead of clobbering;
+  // the next snapshot matches what we already have, so no flicker.
   function mutate(fn) {
-    setList((current) => {
-      const next = fn(current);
-      saveNames(next);
-      return next;
-    });
+    setList(fn);
+    mutateNames(fn);
   }
 
   // Add a name, then auto-pull its origin/meaning (dictionary first, then a
@@ -237,6 +287,7 @@ export default function Names() {
     onUpdate: (id, patch) => mutate((l) => updateName(l, id, patch)),
     onDelete: (id) => mutate((l) => deleteName(l, id)),
     onMove: (id, dir) => mutate((l) => moveName(l, id, dir)),
+    onReorder: (draggedId, targetId) => mutate((l) => reorderName(l, draggedId, targetId)),
   };
 
   return (

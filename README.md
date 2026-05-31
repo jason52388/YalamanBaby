@@ -26,8 +26,15 @@ npm run preview  # preview the built site
 The week tracker recalculates itself from the due date every time the page loads.
 
 ## Adding photos
-Drop image files into `public/photos/`. They show up on the Gallery page
-automatically, sorted by filename (e.g. `01-scan.jpg`, `02-bump.jpg`).
+Easiest way: open the site (on your **phone** or computer), go to the **Gallery**
+page, and tap **＋ Add photos**. Pick from your camera roll or take a new photo —
+it uploads and appears right away. Because the whole site is behind the shared
+password, only people who've logged in can add or see photos.
+
+Behind the scenes the upload goes to a small service (`server/upload.mjs`) that
+saves the file into the server's photos folder (`PHOTOS_DIR`); Caddy serves that
+folder at `/photos/`. You can still drop files into that folder directly on the
+server if you prefer. See `DEPLOY.md`.
 
 ## Editing the content
 - Week sizes & facts: `src/data/weeks.js`

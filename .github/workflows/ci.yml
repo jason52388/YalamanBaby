@@ -1,0 +1,23 @@
+name: CI
+
+# Lints, tests, and builds on every push and PR so regressions are caught
+# before the deploy workflow ships them to the VPS.
+
+on:
+  push:
+    branches-ignore: []
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

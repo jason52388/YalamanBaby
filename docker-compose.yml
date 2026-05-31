@@ -7,9 +7,13 @@
 #       that lacks the repo files, so relative bind mounts resolve to empty
 #       dirs. The Caddyfile and built site are baked into the image instead.
 #
-# This container exposes NO host ports. It serves on port 80 internally and
-# joins the shared external `proxy-shared` Docker network so the public
-# warren-caddy (on the same VPS) can reverse_proxy to it by container name.
+# Reached by the public warren-caddy proxy by CONTAINER NAME over the shared
+# external `proxy-shared` network: warren-caddy does `reverse_proxy
+# yalaman-baby:80`. No host port is published — binding the docker bridge
+# gateway (172.17.0.1) failed on this VPS ("cannot assign requested address"),
+# which also means the old DEPLOY.md `reverse_proxy 172.17.0.1:8088` route can't
+# work here. The by-name path requires warren-caddy to (a) be attached to
+# proxy-shared and (b) have a site block for the domain. See DEPLOY.md.
 services:
   web:
     build: .
@@ -17,9 +21,35 @@ services:
     restart: unless-stopped
     environment:
       - SITE_HOSTNAME=${SITE_HOSTNAME}
+      # Auth secrets the Caddyfile reads via {$VAR}. Sourced from the deploy
+      # shell env (GitHub secrets) — never committed. See DEPLOY.md.
+      - BABY_AUTH_HASH=${BABY_AUTH_HASH}
+      - BABY_AUTH_COOKIE=${BABY_AUTH_COOKIE}
+    volumes:
+      # Personal photos live on the VPS only (gitignored). Mount an absolute
+      # host path so the Gallery can serve them; defaults to /srv/yalaman-photos.
+      # Read-only here — only the uploader service writes new files.
+      - ${PHOTOS_DIR:-/srv/yalaman-photos}:/srv/photos:ro
     networks:
       - baby
       - proxy-shared
+
+  # Receives photo uploads from the Gallery page and writes them into the same
+  # photos folder. Caddy only proxies /api/* to it from inside the authenticated
+  # block, so it inherits the site's password gate (and re-checks the cookie
+  # itself for defense-in-depth). Not published or attached to proxy-shared, so
+  # it is unreachable except via the gated web container.
+  uploader:
+    build: ./server
+    container_name: yalaman-uploader
+    restart: unless-stopped
+    environment:
+      - BABY_AUTH_COOKIE=${BABY_AUTH_COOKIE}
+    volumes:
+      # Same host path as the web container, but READ-WRITE so it can save.
+      - ${PHOTOS_DIR:-/srv/yalaman-photos}:/srv/photos:rw
+    networks:
+      - baby
 
 networks:
   baby:
