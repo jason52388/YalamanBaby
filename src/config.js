@@ -13,5 +13,5 @@ export const config = {
 
   // Your due date in YYYY-MM-DD format.
   // This drives the automatic week tracker — no manual updating needed.
-  dueDate: '2027-01-05',
+  dueDate: '2027-01-02',
 };
