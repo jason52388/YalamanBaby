@@ -1,4 +1,4 @@
-import { foods, lifestyle } from '../data/diet.js';
+import { foods, lifestyle, substances } from '../data/diet.js';
 
 function FoodCard({ group }) {
   return (
@@ -34,7 +34,7 @@ export default function Diet() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Diet &amp; Do's</h1>
+        <h1>Diet Do's &amp; Don'ts</h1>
         <p>What to eat, what to avoid, and how to stay safe and healthy along the way.</p>
       </div>
 
@@ -48,6 +48,14 @@ export default function Diet() {
       <div className="grid grid-2">
         <ListCard group={lifestyle.dos} />
         <ListCard group={lifestyle.donts} />
+      </div>
+
+      <h2 style={{ textAlign: 'center', marginTop: '2.5rem' }}>💊 Beyond Food</h2>
+      <p style={{ textAlign: 'center', maxWidth: '40rem', margin: '0 auto 1.25rem' }}>
+        {substances.intro}
+      </p>
+      <div className="grid grid-2">
+        <FoodCard group={substances} />
       </div>
 
       <p className="disclaimer">
