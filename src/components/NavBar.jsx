@@ -7,7 +7,7 @@ const links = [
   { to: '/', label: 'Home', end: true },
   { to: '/progress', label: 'Progress' },
   { to: '/tips', label: 'Tips & Tricks' },
-  { to: '/diet', label: "Diet & Do's" },
+  { to: '/diet', label: "Diet Do's & Don'ts" },
   { to: '/gallery', label: 'Gallery' },
   { to: '/names', label: 'Names' },
 ];
