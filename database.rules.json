@@ -49,6 +49,20 @@
         "updatedAt": { ".validate": "newData.isNumber()" },
         "$other": { ".validate": false }
       }
+    },
+    "babyPhotos": {
+      "items": {
+        ".read": true,
+        ".write": true,
+        "$id": {
+          ".validate": "newData.hasChildren(['dataUrl']) || newData.val() == null",
+          "dataUrl": { ".validate": "newData.isString() && newData.val().length <= 12000000" },
+          "name": { ".validate": "newData.isString() && newData.val().length <= 200" },
+          "takenAt": { ".validate": "newData.isNumber()" },
+          "addedAt": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
     }
   }
 }

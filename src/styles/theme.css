@@ -283,6 +283,12 @@ ul.clean li:last-child { border-bottom: none; }
 }
 
 /* ── Gallery ── */
+.gallery-section { margin-bottom: 2rem; }
+.gallery-month {
+  font-size: 1.35rem; margin: 0 0 1rem;
+  padding-bottom: .4rem; border-bottom: 2px solid var(--cream-deep);
+  color: var(--ink);
+}
 .gallery-grid { columns: 3 240px; column-gap: 1rem; }
 .gallery-grid img {
   width: 100%;
@@ -306,7 +312,10 @@ ul.clean li:last-child { border-bottom: none; }
 .gallery-empty code { background: var(--cream-deep); padding: .15rem .4rem; border-radius: 6px; color: var(--ink); }
 
 /* Upload */
-.gallery-actions { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+.gallery-actions {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: .75rem 1rem; margin-bottom: 1.25rem;
+}
 .upload-btn {
   background: var(--pink);
   color: var(--white);
@@ -345,6 +354,13 @@ ul.clean li:last-child { border-bottom: none; }
 }
 .lightbox img { max-width: 92vw; max-height: 88vh; border-radius: var(--radius-sm); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
 .lightbox .close { position: absolute; top: 1.2rem; right: 1.5rem; font-size: 2rem; color: #fff; cursor: pointer; background: none; border: none; line-height: 1; }
+.lightbox-delete {
+  position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.92); color: #a23a3a; border: none;
+  border-radius: 999px; padding: .55rem 1.25rem; font: inherit; font-weight: 600;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+}
+.lightbox-delete:hover { background: #fff; }
 
 /* ── Footer ── */
 .site-footer { text-align: center; padding: 2rem 1rem; color: var(--ink-soft); font-size: .9rem; }
