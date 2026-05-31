@@ -5,6 +5,7 @@ import {
 } from '../lib/names.js';
 import { subscribeNames, mutateNames, sharedMode } from '../lib/namesStore.js';
 import { lookupMeaning } from '../data/nameMeanings.js';
+import { lookupPopularity } from '../data/namePopularity.js';
 import { lookupNameAuto } from '../lib/lookupName.js';
 
 const COLUMNS = [
@@ -58,6 +59,24 @@ function AddForm({ gender, onAdd }) {
         </button>
       </div>
     </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  US popularity (from SSA data) — shown when a name is expanded
+// ─────────────────────────────────────────────────────────────
+function Popularity({ name }) {
+  const p = lookupPopularity(name);
+  if (!p) return null;
+  return (
+    <p className="pop">
+      📊{' '}
+      {p.rank
+        ? <>US <strong>#{p.rank}</strong> in {p.year}</>
+        : <>outside the top names in {p.year}</>}
+      {' · '}
+      peaked in <strong>{p.peakYear}</strong> at {p.peakPct}% of US babies
+    </p>
   );
 }
 
@@ -126,6 +145,7 @@ function NameRow({ entry, canReorder, drag, onUpdate, onDelete, onMoveUp, onMove
                   </>
                 )}
               </p>
+              <Popularity name={entry.name} />
               <div className="row-actions">
                 <button onClick={startEdit} className="btn-link">Edit</button>
                 <button onClick={remove} className="btn-link danger">Delete</button>
