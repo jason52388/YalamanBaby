@@ -54,6 +54,11 @@
 		handle /photos/* {
 			file_server browse
 		}
+		# Photo uploads go to the gated uploader service. Because this is inside
+		# the @authed block, only requests carrying the valid cookie reach it.
+		handle /api/* {
+			reverse_proxy yalaman-uploader:8080
+		}
 		handle {
 			try_files {path} /index.html
 			file_server
