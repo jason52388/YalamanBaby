@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { computeWeek, trimesterLabel } from './pregnancy.js';
+import {
+  computeWeek,
+  trimesterLabel,
+  weekDateRange,
+  formatWeekRange,
+} from './pregnancy.js';
 
 describe('computeWeek', () => {
   it('flags an invalid due date', () => {
@@ -37,5 +42,37 @@ describe('trimesterLabel', () => {
     expect(trimesterLabel(1)).toBe('first trimester');
     expect(trimesterLabel(3)).toBe('third trimester');
     expect(trimesterLabel(99)).toBe('first trimester');
+  });
+});
+
+describe('weekDateRange', () => {
+  it('returns null for an invalid due date', () => {
+    expect(weekDateRange('nope', 10)).toBe(null);
+  });
+
+  it('puts week 40 ending on the due date', () => {
+    // Week 40 spans days 280–286 from LMP; its start is exactly the due date.
+    const r = weekDateRange('2027-01-02', 40);
+    expect(r.start.toISOString().slice(0, 10)).toBe('2027-01-02');
+  });
+
+  it('spans 7 days', () => {
+    const r = weekDateRange('2027-01-02', 20);
+    const days = Math.round((r.end - r.start) / (24 * 60 * 60 * 1000));
+    expect(days).toBe(6);
+  });
+});
+
+describe('formatWeekRange', () => {
+  it('is empty for a null range', () => {
+    expect(formatWeekRange(null)).toBe('');
+  });
+
+  it('renders a compact same-month range', () => {
+    const range = {
+      start: new Date('2026-08-03T00:00:00'),
+      end: new Date('2026-08-09T00:00:00'),
+    };
+    expect(formatWeekRange(range)).toBe('Aug 3 – 9');
   });
 });

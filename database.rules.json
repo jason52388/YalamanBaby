@@ -26,6 +26,29 @@
         "updatedAt": { ".validate": "newData.isNumber()" },
         "$other": { ".validate": false }
       }
+    },
+    "babyPlan": {
+      "state": {
+        ".read": true,
+        ".write": true,
+        "checks": {
+          "$id": { ".validate": "newData.isBoolean()" }
+        },
+        "custom": {
+          "$week": {
+            "$index": {
+              ".validate": "newData.hasChildren(['id', 'text'])",
+              "id": { ".validate": "newData.isString() && newData.val().length <= 64" },
+              "text": { ".validate": "newData.isString() && newData.val().length <= 280" },
+              "audience": { ".validate": "newData.val() == 'you' || newData.val() == 'partner'" },
+              "addedAt": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          }
+        },
+        "updatedAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
     }
   }
 }

@@ -53,3 +53,34 @@ const ORDINALS = ['first', 'second', 'third'];
 export function trimesterLabel(trimester) {
   return `${ORDINALS[trimester - 1] || 'first'} trimester`;
 }
+
+/**
+ * The calendar date range a given gestational week spans, derived from the
+ * due date. Week N starts at LMP + N*7 days (LMP = dueDate - 280 days) and
+ * runs for 7 days.
+ *
+ * @param {string} dueDateStr  YYYY-MM-DD
+ * @param {number} week        gestational week (e.g. 1–40)
+ * @returns {{start:Date, end:Date}|null}  null if the due date is invalid
+ */
+export function weekDateRange(dueDateStr, week) {
+  const due = new Date(dueDateStr + 'T00:00:00');
+  if (Number.isNaN(due.getTime())) return null;
+  const lmp = new Date(due.getTime() - TOTAL_DAYS * MS_PER_DAY);
+  const start = new Date(lmp.getTime() + week * 7 * MS_PER_DAY);
+  const end = new Date(start.getTime() + 6 * MS_PER_DAY);
+  return { start, end };
+}
+
+/** Format a week's date range compactly, e.g. "Aug 3 – 9" or "Jul 28 – Aug 3". */
+export function formatWeekRange(range) {
+  if (!range) return '';
+  const opts = { month: 'short', day: 'numeric' };
+  const startStr = range.start.toLocaleDateString(undefined, opts);
+  const sameMonth = range.start.getMonth() === range.end.getMonth();
+  const endStr = range.end.toLocaleDateString(
+    undefined,
+    sameMonth ? { day: 'numeric' } : opts,
+  );
+  return `${startStr} – ${endStr}`;
+}

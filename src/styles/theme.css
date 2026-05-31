@@ -507,12 +507,37 @@ ul.clean li:last-child { border-bottom: none; }
   font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
 }
 
-/* Checklist items (todos + appointments) */
+.plan-dates {
+  background: var(--blue); color: var(--ink); border-radius: 999px;
+  padding: .15rem .7rem; font-family: var(--sans); font-size: .8rem; font-weight: 600;
+}
+
+/* View tabs + sync badge */
+.plan-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: .75rem 1rem; margin-bottom: 1.5rem;
+}
+.plan-tabs {
+  display: inline-flex; background: var(--white); border-radius: 999px;
+  padding: .25rem; box-shadow: var(--shadow-sm); gap: .2rem;
+}
+.plan-tab {
+  border: none; background: none; font: inherit; font-weight: 600; cursor: pointer;
+  color: var(--ink-soft); padding: .45rem 1.1rem; border-radius: 999px; transition: background .2s, color .2s;
+}
+.plan-tab:hover { color: var(--ink); }
+.plan-tab.active { background: var(--pink); color: var(--ink); }
+.plan-sync { color: var(--ink-soft); font-size: .9rem; }
+
+/* Checklist items (todos + partner todos + appointments + custom) */
 .plan-checks li { border-bottom: 1px dashed var(--cream-deep); padding: 0; }
 .plan-checks li:last-child { border-bottom: none; }
-.plan-check label {
-  display: flex; align-items: flex-start; gap: .7rem;
-  padding: .65rem .15rem; cursor: pointer;
+.plan-check { display: flex; align-items: flex-start; gap: .35rem; }
+.plan-check.editing { padding: .65rem .15rem; }
+.plan-check.editing .edit-form { flex: 1; }
+.plan-check-main {
+  display: flex; align-items: flex-start; gap: .7rem; flex: 1;
+  padding: .65rem .15rem; cursor: pointer; min-width: 0;
 }
 .plan-check input { position: absolute; opacity: 0; width: 0; height: 0; }
 .plan-check .box {
@@ -528,7 +553,31 @@ ul.clean li:last-child { border-bottom: none; }
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: .9rem; font-weight: 700;
 }
-.plan-check-text { display: flex; flex-direction: column; gap: .15rem; }
+.plan-check-text { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
 .plan-check.done .plan-check-text { color: var(--ink-soft); text-decoration: line-through; }
-.plan-check.done .plan-note { text-decoration: none; }
+.plan-check.done .plan-note,
+.plan-check.done .plan-mine-tag { text-decoration: none; }
 .plan-note { font-size: .85rem; color: var(--ink-soft); }
+.plan-mine-tag {
+  align-self: flex-start; margin-top: .1rem;
+  background: var(--yellow); color: var(--ink); border-radius: 999px;
+  padding: 0 .5rem; font-size: .68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.plan-item-actions { display: flex; align-items: center; gap: .2rem; padding-top: .55rem; }
+.plan-item-actions .btn-icon { width: 30px; height: 30px; }
+
+/* Master / full-checklist view */
+.plan-master { display: grid; gap: 1rem; }
+.plan-week-block { padding: 1.1rem 1.4rem; }
+.plan-week-block.is-now { border-left: 6px solid var(--sage); }
+.plan-week-block-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .8rem; margin-bottom: .35rem;
+}
+.plan-week-block-head h3 { margin: 0; display: flex; align-items: center; gap: .5rem; }
+.plan-week-block-meta { color: var(--ink-soft); font-size: .9rem; }
+
+@media (max-width: 600px) {
+  .plan-toolbar { justify-content: center; }
+  .plan-week-block { padding: 1rem 1.1rem; }
+}
