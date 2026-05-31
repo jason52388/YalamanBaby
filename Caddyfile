@@ -8,20 +8,15 @@
 	encode gzip
 
 	# ── Login that's remembered ──────────────────────────────────
-	# You log in ONCE at /unlock (shared password). On success Caddy
-	# plants a long-lived cookie, so the same browser stays logged in
-	# for a year and never re-prompts — even after you close it.
+	# You log in ONCE at /unlock (shared password). On success Caddy plants a
+	# long-lived cookie, so the same browser stays logged in for a year.
 	#
-	# Deny-by-default: only requests carrying the valid cookie reach the
-	# site; everything else falls through to the final handler and is
-	# bounced to /unlock. The gate is expressed as POSITIVE matching (serve
-	# when the cookie IS present) rather than `not header_regexp`, because
-	# the negated form failed to fire on cookie-less requests — they slipped
-	# past every handler and got a naked empty 200 (a blank page) instead of
-	# the login redirect.
+	# Deny-by-default: only requests carrying the valid cookie reach the site
+	# (handler 2); everything else falls through to handler 3 and is bounced to
+	# /unlock.
 	#
-	# IMPORTANT: both secrets are injected from the environment, NOT stored
-	# in this (public) repo:
+	# IMPORTANT: both secrets are injected from the environment, NOT stored in
+	# this (public) repo:
 	#   BABY_AUTH_HASH    — bcrypt hash of the shared password
 	#   BABY_AUTH_COOKIE  — long random cookie secret
 	# If either were committed here, anyone reading the repo could forge the
@@ -32,13 +27,23 @@
 	#   openssl rand -hex 32                                               # BABY_AUTH_COOKIE
 	# Rotate by changing the secrets and redeploying.
 
-	# 1) /unlock — ask for the password, then set the year-long cookie.
+	# 1) /unlock — ask for the password; ONLY on success set the year-long
+	#    cookie and bounce home.
+	#
+	#    Wrapped in `route` so directive order is PRESERVED: basic_auth runs
+	#    first and halts with 401 on a missing/wrong password, so the
+	#    Set-Cookie below is never reached unless authentication passed. In a
+	#    plain `handle`, Caddy reorders directives and `header` ran BEFORE
+	#    `basic_auth`, planting the auth cookie on the 401 response — i.e. a
+	#    full password bypass (visiting /unlock once logged you in).
 	handle /unlock {
-		basic_auth {
-			yalaman {$BABY_AUTH_HASH}
+		route {
+			basic_auth {
+				yalaman {$BABY_AUTH_HASH}
+			}
+			header +Set-Cookie "babyauth={$BABY_AUTH_COOKIE}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
+			redir https://{host}/ 302
 		}
-		header +Set-Cookie "babyauth={$BABY_AUTH_COOKIE}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
-		redir / 302
 	}
 
 	# 2) Valid cookie → serve the site. Photos get a browsable JSON listing
@@ -57,10 +62,15 @@
 		}
 	}
 
-	# 3) No valid cookie (and not /unlock) → go log in. This bare handler is
-	#    the deny-by-default catch-all: any request that didn't match above
-	#    lands here and is redirected to the password prompt.
+	# 3) No valid cookie (and not /unlock) → go log in.
+	#
+	#    The redirect target is an ABSOLUTE URL on purpose. `redir /unlock 302`
+	#    is mis-parsed by Caddy as "redirect requests matching path /unlock to
+	#    the URL 302" — the leading slash is read as an inline path matcher and
+	#    302 becomes the (bogus) destination. That left cookie-less requests to
+	#    / matching nothing, so Caddy returned a blank 200 instead of bouncing
+	#    here. An absolute URL can't be mistaken for a path matcher.
 	handle {
-		redir /unlock 302
+		redir https://{host}/unlock 302
 	}
 }
