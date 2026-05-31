@@ -19,7 +19,6 @@ export const foods = {
     title: 'Limit & avoid',
     emoji: '🚫',
     items: [
-      { name: 'Alcohol', note: 'No known safe amount during pregnancy.' },
       { name: 'High-mercury fish', note: 'Shark, swordfish, king mackerel, bigeye tuna.' },
       { name: 'Raw / undercooked fish & meat', note: 'Including sushi, rare steak, raw oysters.' },
       { name: 'Deli meats & pâté', note: 'Listeria risk — heat deli meats until steaming.' },
@@ -48,13 +47,27 @@ export const lifestyle = {
     title: "Don't",
     emoji: '⚠️',
     items: [
-      'Smoke or vape, and avoid secondhand smoke.',
-      'Drink alcohol or use recreational drugs.',
       'Use hot tubs, saunas, or very hot baths (overheating risk).',
-      'Take medications or supplements without checking with your provider.',
       'Change cat litter or handle raw soil without gloves (toxoplasmosis risk).',
       'Do contact sports or activities with a high fall risk.',
       'Lift very heavy objects — bend with your knees and ask for help.',
+      'Clean with harsh chemicals in unventilated spaces — open a window or ask for help.',
     ],
   },
+};
+
+// Things to be careful taking that aren't food — always clear them
+// with your provider or pharmacist first.
+export const substances = {
+  title: 'Skip or check first',
+  emoji: '💊',
+  intro: 'Beyond food, some things you take need a provider or pharmacist OK before use.',
+  items: [
+    { name: 'High-dose vitamin A (retinol)', note: 'Too much can harm the baby — avoid retinol/isotretinoin and high-dose supplements.' },
+    { name: 'Herbal & "natural" supplements', note: 'Many (e.g. high-dose herbs, weight-loss or detox blends) aren\'t tested in pregnancy.' },
+    { name: 'Megadose vitamins & minerals', note: 'Stick to your prenatal — extra doses can be harmful. Don\'t double up.' },
+    { name: 'Most OTC pain & cold meds', note: 'Avoid ibuprofen, aspirin, and decongestants unless your provider approves.' },
+    { name: 'Old or new prescriptions', note: 'Check that existing meds are still safe; clear any new ones first.' },
+    { name: 'CBD, cannabis & nicotine products', note: 'Including gummies, oils, and vapes — not considered safe in pregnancy.' },
+  ],
 };
