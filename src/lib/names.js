@@ -43,6 +43,32 @@ export function moveName(list, id, dir) {
 }
 
 /**
+ * Drag-and-drop reorder: move `draggedId` to sit immediately before
+ * `targetId` within their (shared) gender column. No-op across columns.
+ */
+export function reorderName(list, draggedId, targetId) {
+  const dragged = list.find((n) => n.id === draggedId);
+  const target = list.find((n) => n.id === targetId);
+  if (!dragged || !target || draggedId === targetId) return list;
+  if (dragged.gender !== target.gender) return list;
+
+  const col = list.filter((n) => n.gender === dragged.gender);
+  const byId = Object.fromEntries(col.map((n) => [n.id, n]));
+  const ids = col.map((n) => n.id).filter((id) => id !== draggedId);
+  const targetIdx = ids.indexOf(targetId);
+  ids.splice(targetIdx, 0, draggedId); // insert before the target
+  const reordered = ids.map((id) => byId[id]);
+
+  const result = [];
+  let i = 0;
+  for (const n of list) {
+    if (n.gender === dragged.gender) { result.push(reordered[i]); i++; }
+    else result.push(n);
+  }
+  return result;
+}
+
+/**
  * Returns rows for a given gender, sorted by `mode`. Always tags each row
  * with a 1-based `rank` reflecting MANUAL order (so the badge stays stable
  * even when sorted A→Z).

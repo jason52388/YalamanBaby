@@ -371,6 +371,10 @@ ul.clean li:last-child { border-bottom: none; }
 .name-list { display: flex; flex-direction: column; gap: .4rem; }
 .name-row { background: var(--cream); border-radius: var(--radius-sm); overflow: hidden; }
 .name-row.open { background: #fff; box-shadow: var(--shadow-sm); }
+.name-row[draggable="true"] { cursor: grab; }
+.name-row[draggable="true"]:active { cursor: grabbing; }
+.name-row.drag-over { box-shadow: inset 0 3px 0 var(--pink-deep); }
+.grip { color: var(--ink-soft); font-size: 1rem; letter-spacing: -2px; cursor: grab; }
 .name-head {
   display: flex; align-items: center; gap: .75rem; width: 100%;
   background: none; border: none; cursor: pointer; padding: .65rem .85rem;
