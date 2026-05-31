@@ -73,42 +73,42 @@ leaks), regenerate `BABY_AUTH_COOKIE`, update the secret, and re-run the deploy
 
 ### Firebase database rules
 
-The Baby Names list lives in Realtime Database. Apply the committed rules so the
-database isn't world-writable as arbitrary storage:
+The Baby Names list, the weekly Plan, and the Gallery photos all live in
+Realtime Database. Apply the committed rules so the database isn't
+world-writable as arbitrary storage:
 
 ```bash
 npx firebase login
 npx firebase deploy --only database --project yalaman-baby
 ```
 
-`database.rules.json` denies everything except the `babyNames/list` node and
-validates writes to a strict, size-bounded shape. There's no Firebase Auth, so
-that node stays publicly readable/writable — for stronger protection, enable
-Firebase App Check or Auth and gate `.write` on it.
+**Re-run this whenever `database.rules.json` changes.** The rules are *not*
+deployed by the VPS pipeline (that only ships the web app over SSH), so a new
+DB-backed feature stays broken with a `permission denied` error until you push
+the rules. `database.rules.json` denies everything by default and opens up only
+three nodes — `babyNames/list`, `babyPlan/state`, and `babyPhotos/items` — each
+validated to a strict, size-bounded shape. There's no Firebase Auth, so those
+nodes stay publicly readable/writable — for stronger protection, enable Firebase
+App Check or Auth and gate `.write` on it.
 
 ### Gallery photos
 
-Photos are personal and gitignored, so they're **not** baked into the image.
-They live in the host folder named by `PHOTOS_DIR` (default `/srv/yalaman-photos`)
-on the VPS. The `web` (Caddy) container mounts it **read-only** and serves it at
-`/photos/`; the `uploader` container mounts the same folder **read-write**.
+Gallery photos are stored in **Firebase Realtime Database**, not on the VPS. When
+you tap **＋ Add photos**, the browser resizes/compresses each image to a JPEG
+data URL client-side (longest edge 1600px) and writes it to the `babyPhotos/items`
+node — shared live between both of you, with no upload server involved. This is
+why deploying the database rules (above) is required: without the `babyPhotos`
+rules, every upload fails with `permission denied`.
 
-There are two ways to add photos:
+If Firebase isn't configured in `src/firebase.js`, the Gallery falls back to
+per-device `localStorage` so it still works, but photos aren't shared.
 
-1. **From the site (recommended, works on phones).** Log in, open the Gallery
-   page, and tap **＋ Add photos**. The browser POSTs the file to `/api/upload`,
-   which Caddy proxies — *only from inside the authenticated block* — to the
-   `uploader` service (`server/upload.mjs`). That service re-checks the auth
-   cookie, sniffs the file's magic bytes (JPG/PNG/WebP/GIF only), enforces a
-   size cap, generates a safe filename, and writes it into `PHOTOS_DIR`. No
-   public storage bucket is involved; uploads are gated by the same shared
-   password as the rest of the site.
-2. **Directly on the server.** Drop image files into the `PHOTOS_DIR` folder on
-   the VPS and they appear in the Gallery automatically.
-
-The uploader is **not** published to a host port or attached to `proxy-shared`,
-so it is unreachable except through the gated `web` container. The upload size
-limit defaults to 20 MB (`UPLOAD_MAX_BYTES`).
+> **Legacy file-based uploader.** The repo also ships an `uploader` service
+> (`server/upload.mjs`) that writes files into the host `PHOTOS_DIR` (default
+> `/srv/yalaman-photos`, served read-only by Caddy at `/photos/`, size cap
+> `UPLOAD_MAX_BYTES`, default 20 MB). The current Gallery no longer POSTs to its
+> `/api/upload` endpoint — it's kept only for dropping image files directly onto
+> the server.
 
 ## SSH authentication failure
 

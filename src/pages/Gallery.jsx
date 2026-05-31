@@ -99,7 +99,10 @@ export default function Gallery() {
         // In local-only mode there's no live subscription, so update directly.
         if (!sharedMode) setPhotos((prev) => [...prev, stored]);
       } catch (e) {
-        failures.push(`${file.name}: ${e.message || 'upload failed'}`);
+        const msg = /permission_denied/i.test(e.message || '')
+          ? 'permission denied — deploy the Firebase database rules (see DEPLOY.md)'
+          : e.message || 'upload failed';
+        failures.push(`${file.name}: ${msg}`);
       }
     }
     setBusy(false);
