@@ -4,13 +4,21 @@
 # redirects, and HTTPS, then proxy this app at yalaman-baby:80 or localhost:8088.
 
 :80 {
+	root * /srv
+	encode gzip
+
 	# ── Login that's remembered ──────────────────────────────────
 	# You log in ONCE at /unlock (shared password). On success Caddy
 	# plants a long-lived cookie, so the same browser stays logged in
 	# for a year and never re-prompts — even after you close it.
 	#
-	# Deny-by-default: anything without the valid cookie is bounced to
-	# /unlock. Only requests carrying the secret cookie reach the site.
+	# Deny-by-default: only requests carrying the valid cookie reach the
+	# site; everything else falls through to the final handler and is
+	# bounced to /unlock. The gate is expressed as POSITIVE matching (serve
+	# when the cookie IS present) rather than `not header_regexp`, because
+	# the negated form failed to fire on cookie-less requests — they slipped
+	# past every handler and got a naked empty 200 (a blank page) instead of
+	# the login redirect.
 	#
 	# IMPORTANT: both secrets are injected from the environment, NOT stored
 	# in this (public) repo:
@@ -25,8 +33,7 @@
 	# Rotate by changing the secrets and redeploying.
 
 	# 1) /unlock — ask for the password, then set the year-long cookie.
-	@unlock path /unlock
-	handle @unlock {
+	handle /unlock {
 		basic_auth {
 			yalaman {$BABY_AUTH_HASH}
 		}
@@ -34,28 +41,26 @@
 		redir / 302
 	}
 
-	# 2) No valid cookie → go log in. (Defined before the content handlers so
-	#    unauthenticated requests are redirected on every path.)
-	@noauth not header_regexp Cookie "babyauth={$BABY_AUTH_COOKIE}"
-	handle @noauth {
-		redir /unlock 302
+	# 2) Valid cookie → serve the site. Photos get a browsable JSON listing
+	#    (read by the Gallery page); everything else is the SPA, with unknown
+	#    paths falling back to index.html.
+	@authed header_regexp Cookie "babyauth={$BABY_AUTH_COOKIE}"
+	handle @authed {
+		handle /photos/* {
+			file_server browse
+		}
+		handle {
+			try_files {path} /index.html
+			file_server
+			# Light caching so a redeploy shows new content within a minute.
+			header /*.html Cache-Control "public, max-age=60"
+		}
 	}
 
-	# 3) Personal photos, mounted at runtime (see docker-compose PHOTOS_DIR).
-	#    Served with a browsable JSON listing the Gallery page reads.
-	handle /photos/* {
-		root * /srv
-		file_server browse
-	}
-
-	# 4) Logged-in browsers get the site.
+	# 3) No valid cookie (and not /unlock) → go log in. This bare handler is
+	#    the deny-by-default catch-all: any request that didn't match above
+	#    lands here and is redirected to the password prompt.
 	handle {
-		root * /srv
-		encode gzip
-		try_files {path} /index.html
-		file_server
-
-		# Light caching so a redeploy shows new content within a minute.
-		header /*.html Cache-Control "public, max-age=60"
+		redir /unlock 302
 	}
 }
