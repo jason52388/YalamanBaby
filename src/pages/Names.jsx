@@ -8,10 +8,9 @@ import { lookupMeaning } from '../data/nameMeanings.js';
 import { lookupPopularity } from '../data/namePopularity.js';
 import { lookupNameAuto } from '../lib/lookupName.js';
 
+// It's a girl! — we only track girl names now.
 const COLUMNS = [
-  { gender: 'boy',    title: 'Boys',   emoji: '👦' },
-  { gender: 'girl',   title: 'Girls',  emoji: '👧' },
-  { gender: 'unisex', title: 'Unisex', emoji: '⭐' },
+  { gender: 'girl', title: 'Girls', emoji: '👧' },
 ];
 
 const SORTS = [
@@ -248,7 +247,7 @@ function Column({ column, list, sort, setSort, ...handlers }) {
 // ─────────────────────────────────────────────────────────────
 export default function Names() {
   const [list, setList] = useState([]);
-  const [sort, setSort] = useState({ boy: 'rank', girl: 'rank', unisex: 'rank' });
+  const [sort, setSort] = useState({ girl: 'rank' });
 
   // Subscribe to the shared/cloud (or local) store. The cb fires once
   // immediately and again on every remote change — so the page reacts live
@@ -323,8 +322,8 @@ export default function Names() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Baby Names</h1>
-        <p>Our running list — add, rank, and click any name to see its origin and meaning.</p>
+        <h1>Baby Girl Names 🎀</h1>
+        <p>Our running list of favorite girl names — add, rank, and click any name to see its origin and meaning.</p>
       </div>
 
       <div className="name-toolbar">

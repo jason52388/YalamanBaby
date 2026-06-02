@@ -1,13 +1,17 @@
 /* ───────────────────────────────────────────────
-   Soft pastel theme
+   Soft pastel theme — it's a girl! 🎀
+   Pink-forward, with a soft lilac/mauve as the
+   complementary accent (formerly blue).
    ─────────────────────────────────────────────── */
 :root {
-  --cream: #fdf8f3;
-  --cream-deep: #f6ece2;
+  --cream: #fdf6f7;
+  --cream-deep: #f7e7ea;
   --pink: #f6c6cf;
   --pink-deep: #e79aa6;
-  --blue: #bcd6e6;
-  --blue-deep: #8db8cf;
+  --rose: #ef8aa6;
+  /* These two were a blue accent; now a lilac/mauve that pairs with pink. */
+  --blue: #e7cbe6;
+  --blue-deep: #c79ad0;
   --sage: #cdddc6;
   --yellow: #f7e2a6;
   --ink: #5a4d49;
@@ -32,8 +36,8 @@ body {
   color: var(--ink);
   background: var(--cream);
   background-image:
-    radial-gradient(circle at 15% 10%, rgba(246, 198, 207, 0.25), transparent 40%),
-    radial-gradient(circle at 85% 0%, rgba(188, 214, 230, 0.28), transparent 38%);
+    radial-gradient(circle at 15% 10%, rgba(246, 198, 207, 0.32), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(231, 203, 230, 0.30), transparent 38%);
   background-attachment: fixed;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -232,6 +236,23 @@ ul.clean li:last-child { border-bottom: none; }
 /* ── Home / hero ── */
 .hero { text-align: center; padding: 2rem 0 1rem; }
 .hero .eyebrow { color: var(--pink-deep); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .85rem; }
+
+/* "It's a girl!" reveal banner */
+.girl-reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 1rem 0 .25rem;
+  padding: .5rem 1.4rem;
+  background: linear-gradient(135deg, var(--pink), var(--rose));
+  color: #fff;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+.girl-reveal .sparkle { font-size: 1.1em; }
 .hero-card {
   background: var(--white);
   border-radius: var(--radius);
@@ -414,6 +435,8 @@ ul.clean li:last-child { border-bottom: none; }
 .name-toolbar .hint { color: var(--ink-soft); font-size: .9rem; margin-left: auto; }
 
 .name-cols { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+/* Single girls column — keep it a comfortable, centered width. */
+.name-cols:has(> :only-child) { max-width: 580px; margin: 0 auto; }
 .name-col { display: flex; flex-direction: column; gap: .85rem; }
 .col-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: 0; }
 .col-head h3 { margin: 0; }
