@@ -19,9 +19,14 @@ export default function Home() {
       <div className="hero">
         <p className="eyebrow">{config.parentNames} are expecting</p>
         <h1>Our Baby Journey 👶</h1>
+        <p className="girl-reveal">
+          <span className="sparkle" aria-hidden="true">🎀</span>
+          It’s a girl!
+          <span className="sparkle" aria-hidden="true">💕</span>
+        </p>
         <p style={{ maxWidth: '34rem', margin: '0 auto', color: 'var(--ink-soft)' }}>
-          Following our little one week by week — the milestones, the cravings,
-          and every precious moment along the way.
+          Following our little girl week by week — the milestones, the cravings,
+          and every precious moment along the way until we meet her.
         </p>
 
         <div className="hero-card">
