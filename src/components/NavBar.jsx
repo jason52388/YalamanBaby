@@ -7,6 +7,7 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 const links = [
   { to: '/', label: 'Home', end: true },
   { to: '/plan', label: 'Your Plan' },
+  { to: '/body', label: 'Your Body' },
   { to: '/progress', label: 'Progress' },
   { to: '/tips', label: 'Tips & Tricks' },
   { to: '/diet', label: "Diet Do's & Don'ts" },

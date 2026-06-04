@@ -642,3 +642,82 @@ ul.clean li:last-child { border-bottom: none; }
   .plan-toolbar { justify-content: center; }
   .plan-week-block { padding: 1rem 1.1rem; }
 }
+
+/* ───────────────────────────────────────────────
+   Your Body page
+   ─────────────────────────────────────────────── */
+
+/* Growing-uterus diagram */
+.body-figure-card { display: flex; flex-direction: column; }
+.body-figure {
+  display: flex; justify-content: center;
+  margin: .25rem 0 .5rem;
+}
+.belly-svg { width: 100%; max-width: 300px; height: auto; }
+.belly-label {
+  font-family: var(--sans); font-size: 11px; font-weight: 600;
+  fill: var(--ink-soft);
+}
+.belly-label-accent { fill: var(--pink-deep); }
+.body-figure-caption {
+  margin: 0; text-align: center; color: var(--ink-soft); font-size: .92rem;
+}
+
+/* "By the numbers" metric tiles */
+.body-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+.body-metric {
+  background: var(--cream); border-radius: var(--radius-sm);
+  padding: .75rem .85rem;
+}
+.body-metric-top { display: flex; align-items: center; gap: .4rem; margin-bottom: .25rem; }
+.body-metric-icon { font-size: 1.1rem; }
+.body-metric-label {
+  font-size: .72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--ink-soft);
+}
+.body-metric-value {
+  font-family: var(--serif); font-size: 1.25rem; color: var(--pink-deep);
+  line-height: 1.15;
+}
+.body-metric-sub { font-size: .75rem; color: var(--ink-soft); margin-top: .15rem; }
+.body-bar {
+  background: var(--cream-deep); border-radius: 999px; height: 8px;
+  overflow: hidden; margin: .4rem 0 .15rem;
+}
+.body-bar-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--pink), var(--blue-deep));
+  transition: width .5s ease;
+}
+
+/* What's-changing list */
+.body-changes { display: flex; flex-direction: column; gap: .15rem; }
+.body-change {
+  display: flex; align-items: flex-start; gap: .75rem;
+  padding: .65rem 0; border-bottom: 1px dashed var(--cream-deep);
+}
+.body-change:last-child { border-bottom: none; }
+.body-change-icon {
+  flex: 0 0 auto; font-size: 1.35rem; line-height: 1.4;
+  width: 2rem; text-align: center;
+}
+.body-change-text { display: flex; flex-direction: column; gap: .1rem; }
+.body-change-area {
+  font-size: .78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .03em; color: var(--pink-deep);
+}
+
+/* Symptom chips */
+.symptom-tags { display: flex; flex-wrap: wrap; gap: .5rem; }
+.symptom-tag {
+  background: var(--blue); color: var(--ink);
+  border-radius: 999px; padding: .35rem .85rem;
+  font-size: .9rem; font-weight: 600;
+}
+
+/* Good-to-know facts */
+.body-facts { background: linear-gradient(135deg, #fff4f1, #fdeef0); }
+
+@media (max-width: 600px) {
+  .body-metrics { grid-template-columns: 1fr; }
+}
