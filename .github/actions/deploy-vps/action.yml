@@ -1,0 +1,57 @@
+name: Deploy to VPS over SSH (one attempt)
+description: >
+  SSHes into the VPS, pulls the latest main, and runs scripts/deploy-remote.sh.
+  A single attempt — the workflow calls this multiple times to retry past the
+  intermittent connection timeouts seen between GitHub runners and the host.
+
+inputs:
+  host:           { description: VPS host/IP,          required: true }
+  username:       { description: SSH username,         required: true }
+  key:            { description: SSH private key,      required: true }
+  vps_path:       { description: Repo path on the VPS, required: true }
+  site_hostname:  { description: Public hostname,      required: true }
+  http_port:      { description: HTTP port,            required: false, default: '' }
+  auth_hash_b64:  { description: base64 bcrypt hash,   required: true }
+  auth_cookie:    { description: Auth cookie secret,   required: true }
+  photos_dir:     { description: Photos dir on VPS,    required: false, default: '' }
+
+runs:
+  using: composite
+  steps:
+    - name: SSH and deploy
+      uses: appleboy/ssh-action@v1.2.0
+      env:
+        SITE_HOSTNAME: ${{ inputs.site_hostname }}
+        BABY_HTTP_PORT: ${{ inputs.http_port }}
+        BABY_AUTH_HASH_B64: ${{ inputs.auth_hash_b64 }}
+        BABY_AUTH_COOKIE: ${{ inputs.auth_cookie }}
+        PHOTOS_DIR: ${{ inputs.photos_dir }}
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key: ${{ inputs.key }}
+        # Per-attempt connection timeout. Kept short so a stalled connect fails
+        # fast and the workflow can retry, rather than burning minutes on one try.
+        timeout: 45s
+        command_timeout: 15m
+        envs: SITE_HOSTNAME,BABY_HTTP_PORT,BABY_AUTH_HASH_B64,BABY_AUTH_COOKIE,PHOTOS_DIR
+        script: |
+          set -euo pipefail
+
+          REPO="https://github.com/jason52388/YalamanBaby.git"
+          DIR="${{ inputs.vps_path }}"
+
+          # Ensure a clean clone exists at DIR. If it's missing or isn't a git
+          # repo, recreate it. .env is rewritten by the script below regardless.
+          if [ ! -d "$DIR/.git" ]; then
+            rm -rf "$DIR"
+            git clone "$REPO" "$DIR"
+          fi
+
+          cd "$DIR"
+          git remote set-url origin "$REPO"
+          git fetch origin main
+          git reset --hard origin/main
+
+          # Hand off to the committed deploy script (now present after the reset).
+          bash scripts/deploy-remote.sh
