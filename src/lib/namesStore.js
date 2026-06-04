@@ -18,11 +18,27 @@ const PATH = 'babyNames/list';
 /** Whether shared cloud storage is on. UI shows a status badge. */
 export const sharedMode = isConfigured;
 
+/**
+ * Normalize stored items to the current shape: each name belongs to an
+ * `owner` ('erika' | 'jason'). Older entries used a `gender` field and had no
+ * owner — those were the single shared girls list, so they migrate to Erika.
+ * Applied on every read and write, so the migration persists on first edit.
+ */
+function normalizeItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items.map((n) => {
+    const owner = n.owner === 'jason' ? 'jason' : 'erika';
+    const out = { ...n, owner };
+    delete out.gender; // drop the legacy field once migrated
+    return out;
+  });
+}
+
 function readLocal() {
   try {
     const raw = localStorage.getItem(LS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    return normalizeItems(parsed);
   } catch {
     return [];
   }
@@ -40,7 +56,7 @@ export function subscribeNames(cb) {
       node,
       (snap) => {
         const data = snap.val();
-        cb(Array.isArray(data?.items) ? data.items : []);
+        cb(normalizeItems(data?.items));
       },
       (err) => console.error('[names] Realtime DB subscription error:', err)
     );
@@ -59,7 +75,7 @@ export async function mutateNames(transform) {
   if (isConfigured) {
     const node = ref(rtdb(), PATH);
     await runTransaction(node, (current) => {
-      const items = Array.isArray(current?.items) ? current.items : [];
+      const items = normalizeItems(current?.items);
       return { items: transform(items), updatedAt: Date.now() };
     });
     return;

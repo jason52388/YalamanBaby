@@ -11,10 +11,10 @@
         ".validate": "newData.hasChildren(['items']) || newData.val() == null",
         "items": {
           "$index": {
-            ".validate": "newData.hasChildren(['id', 'name', 'gender'])",
+            ".validate": "newData.hasChildren(['id', 'name', 'owner'])",
             "id": { ".validate": "newData.isString() && newData.val().length <= 64" },
             "name": { ".validate": "newData.isString() && newData.val().length <= 100" },
-            "gender": { ".validate": "newData.val() == 'boy' || newData.val() == 'girl' || newData.val() == 'unisex'" },
+            "owner": { ".validate": "newData.val() == 'erika' || newData.val() == 'jason'" },
             "origin": { ".validate": "newData.isString() && newData.val().length <= 200" },
             "meaning": { ".validate": "newData.isString() && newData.val().length <= 500" },
             "addedAt": { ".validate": "newData.isNumber()" },

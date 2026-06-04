@@ -4,6 +4,7 @@ import { computeWeek, trimesterLabel } from '../lib/pregnancy.js';
 
 const cards = [
   { to: '/plan', ico: '🗓️', label: 'Your Plan', desc: 'Week-by-week to-dos & what’s next' },
+  { to: '/body', ico: '🤰', label: 'Your Body', desc: 'Week-by-week body changes & medical facts' },
   { to: '/progress', ico: '📏', label: 'Progress', desc: "Baby's size & this week's milestones" },
   { to: '/tips', ico: '💡', label: 'Tips & Tricks', desc: 'Morning sickness & feeling your best' },
   { to: '/diet', ico: '🥗', label: "Diet Do's & Don'ts", desc: 'What to eat, avoid, do & skip' },

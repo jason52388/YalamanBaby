@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import {
   uid, updateName, deleteName, moveName, reorderName,
-  viewColumn,
+  viewColumn, sharedSuggestions,
 } from '../lib/names.js';
 import { subscribeNames, mutateNames, sharedMode } from '../lib/namesStore.js';
 import { lookupMeaning } from '../data/nameMeanings.js';
 import { lookupPopularity } from '../data/namePopularity.js';
 import { lookupNameAuto } from '../lib/lookupName.js';
 
-// It's a girl! — we only track girl names now.
+// It's a girl! Two independent lists — one each for Erika and Jason — so you
+// can each plan your own favorites. The suggestions panel above compares them.
 const COLUMNS = [
-  { gender: 'girl', title: 'Girls', emoji: '👧' },
+  { owner: 'erika', who: 'Erika', title: 'Erika’s list', emoji: '👩' },
+  { owner: 'jason', who: 'Jason', title: 'Jason’s list', emoji: '👨' },
 ];
 
 const SORTS = [
@@ -22,7 +24,7 @@ const SORTS = [
 // ─────────────────────────────────────────────────────────────
 //  Add-name form (inline at the top of each column)
 // ─────────────────────────────────────────────────────────────
-function AddForm({ gender, onAdd }) {
+function AddForm({ owner, onAdd }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
 
@@ -30,7 +32,7 @@ function AddForm({ gender, onAdd }) {
     e.preventDefault();
     if (!name.trim()) return;
     // Just the name — origin & meaning are pulled automatically.
-    onAdd({ name: name.trim(), gender });
+    onAdd({ name: name.trim(), owner });
     setName('');
     setOpen(false);
   }
@@ -188,10 +190,10 @@ function NameRow({ entry, canReorder, drag, onUpdate, onRename, onDelete, onMove
 }
 
 // ─────────────────────────────────────────────────────────────
-//  One gender column
+//  One person's list
 // ─────────────────────────────────────────────────────────────
 function Column({ column, list, sort, setSort, ...handlers }) {
-  const rows = viewColumn(list, column.gender, sort);
+  const rows = viewColumn(list, column.owner, sort);
   // Reordering only makes sense against the manual ("rank") order — when the
   // column is sorted A→Z or by newest, the arrows would move rows relative to
   // an order the user can't see, so we hide them.
@@ -217,10 +219,10 @@ function Column({ column, list, sort, setSort, ...handlers }) {
         </select>
       </header>
 
-      <AddForm gender={column.gender} onAdd={handlers.onAdd} />
+      <AddForm owner={column.owner} onAdd={handlers.onAdd} />
 
       {rows.length === 0 ? (
-        <p className="empty">No {column.title.toLowerCase()} yet. Add one above!</p>
+        <p className="empty">No names on {column.who}’s list yet. Add one above!</p>
       ) : (
         <div className="name-list">
           {rows.map((entry) => (
@@ -243,11 +245,58 @@ function Column({ column, list, sort, setSort, ...handlers }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  Shared suggestions — names that appear on BOTH lists, ranked by how
+//  highly Erika and Jason each placed them. Sits above the two lists.
+// ─────────────────────────────────────────────────────────────
+function Suggestions({ list }) {
+  const matches = sharedSuggestions(list, 'erika', 'jason');
+
+  return (
+    <section className="card name-suggestions">
+      <header className="suggest-head">
+        <h3>💞 Names you both love</h3>
+        <span className="count">{matches.length}</span>
+      </header>
+      <p className="suggest-sub">
+        Names on both lists, ranked by how highly you each placed them — your
+        strongest shared picks rise to the top.
+      </p>
+
+      {matches.length === 0 ? (
+        <p className="empty">
+          No shared names yet. As you each add favorites, the ones you agree on
+          will show up here. 💕
+        </p>
+      ) : (
+        <ol className="suggest-list">
+          {matches.map((m, i) => {
+            const dict = lookupMeaning(m.name);
+            return (
+              <li key={m.key} className="suggest-row">
+                <span className="suggest-rank">#{i + 1}</span>
+                <span className="suggest-name">
+                  {m.name}
+                  {dict?.meaning && <span className="suggest-meaning">{dict.meaning}</span>}
+                </span>
+                <span className="suggest-ranks">
+                  <span className="suggest-chip" title="Erika’s rank">👩 #{m.ranks.erika}</span>
+                  <span className="suggest-chip" title="Jason’s rank">👨 #{m.ranks.jason}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 //  Page
 // ─────────────────────────────────────────────────────────────
 export default function Names() {
   const [list, setList] = useState([]);
-  const [sort, setSort] = useState({ girl: 'rank' });
+  const [sort, setSort] = useState({ erika: 'rank', jason: 'rank' });
 
   // Subscribe to the shared/cloud (or local) store. The cb fires once
   // immediately and again on every remote change — so the page reacts live
@@ -294,11 +343,11 @@ export default function Names() {
 
   // Add a name, then auto-pull its origin/meaning (and popularity, which is
   // derived from the name at render time).
-  async function onAdd({ name, gender }) {
+  async function onAdd({ name, owner }) {
     const id = uid();
     mutate((l) => [
       ...l,
-      { id, name, gender, origin: '', meaning: '', pending: true, addedAt: Date.now() },
+      { id, name, owner, origin: '', meaning: '', pending: true, addedAt: Date.now() },
     ]);
     await resolveMeaning(id, name);
   }
@@ -323,25 +372,31 @@ export default function Names() {
     <div className="page">
       <div className="page-head">
         <h1>Baby Girl Names 🎀</h1>
-        <p>Our running list of favorite girl names — add, rank, and click any name to see its origin and meaning.</p>
+        <p>
+          You each keep your own ranked list, so you can plan separately. Add a
+          name, drag to rank it, and click any name for its origin and meaning —
+          the names you both pick rise to the top of the shared shortlist.
+        </p>
       </div>
 
       <div className="name-toolbar">
         <span className="hint">
           {sharedMode
             ? '☁️  Synced live — both of you see every change.'
-            : '📱 Saved in this browser only. Add your Firebase config in src/firebase.js to share live with Erika.'}
+            : '📱 Saved in this browser only. Add your Firebase config in src/firebase.js to share live.'}
         </span>
       </div>
+
+      <Suggestions list={list} />
 
       <div className="name-cols">
         {COLUMNS.map((col) => (
           <Column
-            key={col.gender}
+            key={col.owner}
             column={col}
             list={list}
-            sort={sort[col.gender]}
-            setSort={(v) => setSort({ ...sort, [col.gender]: v })}
+            sort={sort[col.owner]}
+            setSort={(v) => setSort({ ...sort, [col.owner]: v })}
             {...handlers}
           />
         ))}
