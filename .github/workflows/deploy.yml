@@ -91,6 +91,11 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # Connection timeout (default is 30s). The runner occasionally can't
+          # open the SSH connection to the VPS within 30s and the deploy fails
+          # with "dial tcp ...:22: i/o timeout"; a longer window rides out those
+          # brief, intermittent stalls instead of failing the whole run.
+          timeout: 120s
           command_timeout: 15m
           envs: SITE_HOSTNAME,BABY_HTTP_PORT,BABY_AUTH_HASH_B64,BABY_AUTH_COOKIE,PHOTOS_DIR
           script: |
