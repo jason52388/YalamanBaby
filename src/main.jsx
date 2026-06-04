@@ -5,12 +5,11 @@ import App from './App.jsx';
 import Home from './pages/Home.jsx';
 import Plan from './pages/Plan.jsx';
 import Body from './pages/Body.jsx';
-import Progress from './pages/Progress.jsx';
 import Tips from './pages/Tips.jsx';
 import Diet from './pages/Diet.jsx';
 import Gallery from './pages/Gallery.jsx';
 // Names pulls in the Firebase SDK — load it on demand so it stays out of the
-// main bundle that Home/Progress/Tips/Diet/Gallery share.
+// main bundle that Home/Body/Tips/Diet/Gallery share.
 const Names = lazy(() => import('./pages/Names.jsx'));
 import './styles/theme.css';
 
@@ -24,7 +23,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route index element={<Home />} />
           <Route path="plan" element={<Plan />} />
           <Route path="body" element={<Body />} />
-          <Route path="progress" element={<Progress />} />
           <Route path="tips" element={<Tips />} />
           <Route path="diet" element={<Diet />} />
           <Route path="gallery" element={<Gallery />} />
