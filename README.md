@@ -3,11 +3,13 @@
 A little website for Jason & Erika to follow the pregnancy week by week.
 
 ## Pages
-- **Home** — welcome + live week countdown
-- **Progress** — baby's size & milestones for the current week (auto-calculated)
+- **Home** — welcome + this-week snapshot: live countdown plus baby's size, length, weight & milestones (auto-calculated)
+- **Your Plan** — week-by-week to-dos and what's coming next
+- **Your Body** — week-by-week body changes & medical facts
 - **Tips & Tricks** — morning sickness, sleep, comfort & well-being
 - **Diet & Do's** — what to eat/avoid and what to do/skip
 - **Gallery** — your photos
+- **Names** — your ranked lists of favorite names
 
 ## Running it
 ```bash
