@@ -2,7 +2,8 @@ name: Deploy to Hostinger VPS
 
 # Auto-deploys on push to main. SSHes into the VPS, makes sure a clean clone of
 # the repo exists, writes .env from GitHub secrets, then builds and (re)starts
-# the container. Mirrors the stock-site deployment approach.
+# the container. The actual remote work lives in scripts/deploy-remote.sh and is
+# invoked through the local composite action .github/actions/deploy-vps.
 #
 # Required secrets:
 #   Connection:  VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_PATH
@@ -11,6 +12,13 @@ name: Deploy to Hostinger VPS
 # Optional secrets:
 #   BABY_HTTP_PORT defaults to 8088
 #   PHOTOS_DIR     defaults to /srv/yalaman-photos
+#
+# RETRIES — why this workflow tries the SSH deploy up to 3 times:
+#   The GitHub runner intermittently can't open a TCP connection to the VPS on
+#   port 22 ("dial tcp ...:22: i/o timeout"). It's transient: the same commit
+#   has failed one run and succeeded the next ~25s later with no changes. A
+#   single attempt turns that blip into a red deploy, so we retry with backoff
+#   and only fail the job if every attempt can't get through.
 #
 # IMPORTANT — bcrypt hash transport:
 #   BABY_AUTH_HASH is a bcrypt hash like $2b$12$...  The '$' characters get
@@ -28,14 +36,22 @@ on:
   workflow_dispatch:
 
 concurrency:
+  # Only one deploy at a time, and if newer commits land while one is running,
+  # supersede the in-flight run instead of queueing a backlog that hammers the
+  # host with rapid back-to-back SSH connects.
   group: deploy-vps
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Check out repo
+        # Needed so the local composite action (.github/actions/deploy-vps) and
+        # scripts/ are available on the runner.
+        uses: actions/checkout@v4
+
       - name: Validate deploy secrets
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -79,82 +95,64 @@ jobs:
           # base64 (single line, no '$') survives ssh-action env forwarding intact.
           echo "b64=$(printf '%s' "$BABY_AUTH_HASH" | base64 -w0)" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          SITE_HOSTNAME: ${{ secrets.SITE_HOSTNAME }}
-          BABY_HTTP_PORT: ${{ secrets.BABY_HTTP_PORT }}
-          BABY_AUTH_HASH_B64: ${{ steps.enc.outputs.b64 }}
-          BABY_AUTH_COOKIE: ${{ secrets.BABY_AUTH_COOKIE }}
-          PHOTOS_DIR: ${{ secrets.PHOTOS_DIR }}
+      # ── Deploy, retrying past intermittent SSH connect timeouts ──
+      - name: Deploy over SSH (attempt 1)
+        id: deploy1
+        continue-on-error: true
+        uses: ./.github/actions/deploy-vps
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          # Connection timeout (default is 30s). The runner occasionally can't
-          # open the SSH connection to the VPS within 30s and the deploy fails
-          # with "dial tcp ...:22: i/o timeout"; a longer window rides out those
-          # brief, intermittent stalls instead of failing the whole run.
-          timeout: 120s
-          command_timeout: 15m
-          envs: SITE_HOSTNAME,BABY_HTTP_PORT,BABY_AUTH_HASH_B64,BABY_AUTH_COOKIE,PHOTOS_DIR
-          script: |
-            set -euo pipefail
+          vps_path: ${{ secrets.VPS_PATH }}
+          site_hostname: ${{ secrets.SITE_HOSTNAME }}
+          http_port: ${{ secrets.BABY_HTTP_PORT }}
+          auth_hash_b64: ${{ steps.enc.outputs.b64 }}
+          auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
+          photos_dir: ${{ secrets.PHOTOS_DIR }}
 
-            REPO="https://github.com/jason52388/YalamanBaby.git"
-            DIR="${{ secrets.VPS_PATH }}"
+      - name: Backoff before attempt 2
+        if: steps.deploy1.outcome == 'failure'
+        shell: bash
+        run: echo "Attempt 1 failed (likely SSH connect timeout); retrying in 60s…"; sleep 60
 
-            # Ensure a clean clone exists at DIR. If it's missing or isn't a git
-            # repo, recreate it. .env is rewritten below regardless.
-            if [ ! -d "$DIR/.git" ]; then
-              rm -rf "$DIR"
-              git clone "$REPO" "$DIR"
-            fi
+      - name: Deploy over SSH (attempt 2)
+        id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        continue-on-error: true
+        uses: ./.github/actions/deploy-vps
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          vps_path: ${{ secrets.VPS_PATH }}
+          site_hostname: ${{ secrets.SITE_HOSTNAME }}
+          http_port: ${{ secrets.BABY_HTTP_PORT }}
+          auth_hash_b64: ${{ steps.enc.outputs.b64 }}
+          auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
+          photos_dir: ${{ secrets.PHOTOS_DIR }}
 
-            cd "$DIR"
-            git remote set-url origin "$REPO"
-            git fetch origin main
-            git reset --hard origin/main
+      - name: Backoff before attempt 3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        shell: bash
+        run: echo "Attempt 2 failed; final retry in 120s…"; sleep 120
 
-            # Decode the bcrypt hash back from base64. Done in a single shell
-            # var assignment so the '$' characters are never re-expanded.
-            BABY_AUTH_HASH="$(printf '%s' "$BABY_AUTH_HASH_B64" | base64 -d)"
+      - name: Deploy over SSH (attempt 3, final)
+        id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        uses: ./.github/actions/deploy-vps
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          vps_path: ${{ secrets.VPS_PATH }}
+          site_hostname: ${{ secrets.SITE_HOSTNAME }}
+          http_port: ${{ secrets.BABY_HTTP_PORT }}
+          auth_hash_b64: ${{ steps.enc.outputs.b64 }}
+          auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
+          photos_dir: ${{ secrets.PHOTOS_DIR }}
 
-            # Fail loudly if the hash didn't survive transport, instead of
-            # deploying a Caddy that crash-loops on an empty basic_auth hash.
-            case "$BABY_AUTH_HASH" in
-              '$2'*) : ;;
-              *) echo "::error:: decoded BABY_AUTH_HASH is not a bcrypt hash; aborting deploy." >&2; exit 1 ;;
-            esac
-
-            # Export the values so `docker compose` substitutes them via ${...}
-            # in docker-compose.yml. Compose reads them literally from the
-            # process environment (no further '$' interpretation), so the hash
-            # reaches the container — and Caddy's {$BABY_AUTH_HASH} — intact.
-            # We deliberately do NOT write the hash into .env, because compose
-            # re-interprets '$' inside .env values.
-            export BABY_AUTH_HASH
-            export BABY_AUTH_COOKIE
-            export PHOTOS_DIR="${PHOTOS_DIR:-/srv/yalaman-photos}"
-
-            # Write .env with only the '$'-free values. umask 077 -> chmod 600.
-            umask 077
-            cat > .env <<EOF
-            SITE_HOSTNAME=${SITE_HOSTNAME}
-            BABY_HTTP_PORT=${BABY_HTTP_PORT:-8088}
-            EOF
-
-            # Make sure the shared proxy network exists (idempotent — no-op
-            # if it's already there). warren-caddy joins this same network so
-            # it can reverse_proxy to yalaman-baby:80 by container name.
-            docker network create proxy-shared 2>/dev/null || true
-
-            docker compose up -d --build
-
-            # Surface the container state in the deploy log so a crash-looping
-            # Caddy is visible here instead of as a silent blank page.
-            sleep 3
-            docker compose ps
-            docker compose logs --tail=20 web || true
-
-            docker image prune -f
+      - name: Confirm deploy succeeded
+        if: steps.deploy1.outcome == 'success' || steps.deploy2.outcome == 'success' || steps.deploy3.outcome == 'success'
+        shell: bash
+        run: echo "✅ Deploy succeeded."
