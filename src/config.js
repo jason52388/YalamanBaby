@@ -9,9 +9,9 @@
 const GESTATION_DAYS = 280;
 
 function addDays(dateStr, days) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  // Use UTC so the result is the same calendar date in every timezone.
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
 const conceptionDate = '2026-03-28';
