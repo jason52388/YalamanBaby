@@ -11,6 +11,7 @@ inputs:
   vps_path:       { description: Repo path on the VPS, required: true }
   site_hostname:  { description: Public hostname,      required: true }
   http_port:      { description: HTTP port,            required: false, default: '' }
+  ssh_port:       { description: SSH port on the VPS,  required: false, default: '22' }
   auth_hash_b64:  { description: base64 bcrypt hash,   required: true }
   auth_cookie:    { description: Auth cookie secret,   required: true }
   photos_dir:     { description: Photos dir on VPS,    required: false, default: '' }
@@ -30,6 +31,9 @@ runs:
         host: ${{ inputs.host }}
         username: ${{ inputs.username }}
         key: ${{ inputs.key }}
+        # SSH port. Defaults to 22; set the VPS_PORT secret to move sshd off 22
+        # and dodge the host's port-22 edge rate-limiting / brute-force flood.
+        port: ${{ inputs.ssh_port }}
         # Per-attempt connection timeout. Kept short so a stalled connect fails
         # fast and the workflow can retry, rather than burning minutes on one try.
         timeout: 45s

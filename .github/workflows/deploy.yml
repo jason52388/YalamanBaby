@@ -107,6 +107,7 @@ jobs:
           vps_path: ${{ secrets.VPS_PATH }}
           site_hostname: ${{ secrets.SITE_HOSTNAME }}
           http_port: ${{ secrets.BABY_HTTP_PORT }}
+          ssh_port: ${{ secrets.VPS_PORT || '22' }}
           auth_hash_b64: ${{ steps.enc.outputs.b64 }}
           auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
           photos_dir: ${{ secrets.PHOTOS_DIR }}
@@ -128,6 +129,7 @@ jobs:
           vps_path: ${{ secrets.VPS_PATH }}
           site_hostname: ${{ secrets.SITE_HOSTNAME }}
           http_port: ${{ secrets.BABY_HTTP_PORT }}
+          ssh_port: ${{ secrets.VPS_PORT || '22' }}
           auth_hash_b64: ${{ steps.enc.outputs.b64 }}
           auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
           photos_dir: ${{ secrets.PHOTOS_DIR }}
@@ -148,6 +150,7 @@ jobs:
           vps_path: ${{ secrets.VPS_PATH }}
           site_hostname: ${{ secrets.SITE_HOSTNAME }}
           http_port: ${{ secrets.BABY_HTTP_PORT }}
+          ssh_port: ${{ secrets.VPS_PORT || '22' }}
           auth_hash_b64: ${{ steps.enc.outputs.b64 }}
           auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
           photos_dir: ${{ secrets.PHOTOS_DIR }}
