@@ -1,9 +1,8 @@
 name: Deploy to VPS over SSH (one attempt)
 description: >
   SSHes into the VPS, pulls the latest main, and runs scripts/deploy-remote.sh.
-  A single best-effort attempt: it succeeds when the runner can reach the host
-  and fails (red) when the host's edge blocks the connection. See the
-  RELIABILITY note in deploy.yml and the permanent fix in deploy/AUTODEPLOY.md.
+  A single attempt — the workflow calls this multiple times to retry past the
+  intermittent connection timeouts seen between GitHub runners and the host.
 
 inputs:
   host:           { description: VPS host/IP,          required: true }
@@ -31,9 +30,9 @@ runs:
         host: ${{ inputs.host }}
         username: ${{ inputs.username }}
         key: ${{ inputs.key }}
-        # Connection timeout: wait up to 60s for the host to accept before
-        # giving up. A blocked connect fails the step (red); re-run to retry.
-        timeout: 60s
+        # Per-attempt connection timeout. Kept short so a stalled connect fails
+        # fast and the workflow can retry, rather than burning minutes on one try.
+        timeout: 45s
         command_timeout: 15m
         envs: SITE_HOSTNAME,BABY_HTTP_PORT,BABY_AUTH_HASH_B64,BABY_AUTH_COOKIE,PHOTOS_DIR
         script: |
