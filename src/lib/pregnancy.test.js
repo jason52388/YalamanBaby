@@ -30,6 +30,16 @@ describe('computeWeek', () => {
     expect(r.trimester).toBe(3);
   });
 
+  it('lands exactly on a week boundary (70 days = week 10, day 0)', () => {
+    // Regression: deriving the LMP by subtracting a fixed 280×24h of
+    // milliseconds crossed a daylight-saving change and pushed the LMP off
+    // midnight, dropping this from week 10 to week 9+6 in US timezones.
+    const due = '2027-01-02'; // LMP = 2026-03-28
+    const r = computeWeek(due, new Date('2026-06-06T12:00:00'));
+    expect(r.week).toBe(10);
+    expect(r.day).toBe(0);
+  });
+
   it('marks the first trimester early on', () => {
     const due = new Date('2027-01-05T00:00:00');
     const now = new Date(due.getTime() - 270 * 24 * 60 * 60 * 1000); // ~week 1
