@@ -13,21 +13,12 @@ name: Deploy to Hostinger VPS
 #   BABY_HTTP_PORT defaults to 8088
 #   PHOTOS_DIR     defaults to /srv/yalaman-photos
 #
-# RELIABILITY — this is a best-effort, single-attempt deploy:
+# RETRIES — why this workflow tries the SSH deploy up to 3 times:
 #   The GitHub runner intermittently can't open a TCP connection to the VPS on
-#   port 22 ("dial tcp ...:22: i/o timeout"). The SYN packets are dropped, not
-#   refused — the host's edge (fail2ban / Hostinger rate-limit) blocks the
-#   runner's source IP, and observed blocks have held a single runner's IP down
-#   for the FULL length of a run (~19 min). All steps in a run share one IP, so
-#   retrying from here can't beat that — a 5-attempt / 15-min loop was tried and
-#   still lost every attempt. So this workflow makes one honest attempt: green
-#   when it gets through, red when the host blocks it. Re-run it to retry on a
-#   fresh runner IP.
-#
-#   The reliable, permanent deploy path does NOT depend on reaching port 22:
-#   the pull-based autodeploy in deploy/AUTODEPLOY.md has the VPS pull from
-#   GitHub over HTTPS and deploy itself. Enable that and this workflow becomes
-#   just a manual fallback.
+#   port 22 ("dial tcp ...:22: i/o timeout"). It's transient: the same commit
+#   has failed one run and succeeded the next ~25s later with no changes. A
+#   single attempt turns that blip into a red deploy, so we retry with backoff
+#   and only fail the job if every attempt can't get through.
 #
 # IMPORTANT — bcrypt hash transport:
 #   BABY_AUTH_HASH is a bcrypt hash like $2b$12$...  The '$' characters get
@@ -54,7 +45,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # One connect attempt (60s) + the remote build. 20 min is plenty.
     timeout-minutes: 20
     steps:
       - name: Check out repo
@@ -105,12 +95,10 @@ jobs:
           # base64 (single line, no '$') survives ssh-action env forwarding intact.
           echo "b64=$(printf '%s' "$BABY_AUTH_HASH" | base64 -w0)" >> "$GITHUB_OUTPUT"
 
-      # ── One honest deploy attempt ──
-      #    Green if the runner reaches the VPS, red if the host blocks the
-      #    connection. If it goes red, re-run the job to retry on a fresh
-      #    runner IP — or enable the pull-based autodeploy (deploy/AUTODEPLOY.md)
-      #    so deploys stop depending on reaching port 22 at all.
-      - name: Deploy over SSH
+      # ── Deploy, retrying past intermittent SSH connect timeouts ──
+      - name: Deploy over SSH (attempt 1)
+        id: deploy1
+        continue-on-error: true
         uses: ./.github/actions/deploy-vps
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -122,3 +110,49 @@ jobs:
           auth_hash_b64: ${{ steps.enc.outputs.b64 }}
           auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
           photos_dir: ${{ secrets.PHOTOS_DIR }}
+
+      - name: Backoff before attempt 2
+        if: steps.deploy1.outcome == 'failure'
+        shell: bash
+        run: echo "Attempt 1 failed (likely SSH connect timeout); retrying in 60s…"; sleep 60
+
+      - name: Deploy over SSH (attempt 2)
+        id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        continue-on-error: true
+        uses: ./.github/actions/deploy-vps
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          vps_path: ${{ secrets.VPS_PATH }}
+          site_hostname: ${{ secrets.SITE_HOSTNAME }}
+          http_port: ${{ secrets.BABY_HTTP_PORT }}
+          auth_hash_b64: ${{ steps.enc.outputs.b64 }}
+          auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
+          photos_dir: ${{ secrets.PHOTOS_DIR }}
+
+      - name: Backoff before attempt 3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        shell: bash
+        run: echo "Attempt 2 failed; final retry in 120s…"; sleep 120
+
+      - name: Deploy over SSH (attempt 3, final)
+        id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        uses: ./.github/actions/deploy-vps
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          vps_path: ${{ secrets.VPS_PATH }}
+          site_hostname: ${{ secrets.SITE_HOSTNAME }}
+          http_port: ${{ secrets.BABY_HTTP_PORT }}
+          auth_hash_b64: ${{ steps.enc.outputs.b64 }}
+          auth_cookie: ${{ secrets.BABY_AUTH_COOKIE }}
+          photos_dir: ${{ secrets.PHOTOS_DIR }}
+
+      - name: Confirm deploy succeeded
+        if: steps.deploy1.outcome == 'success' || steps.deploy2.outcome == 'success' || steps.deploy3.outcome == 'success'
+        shell: bash
+        run: echo "✅ Deploy succeeded."
