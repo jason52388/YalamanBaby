@@ -1,0 +1,18 @@
+# Pull-based deploy unit. Triggered by yalaman-autodeploy.timer; checks
+# origin/main and redeploys when it moves. See deploy/AUTODEPLOY.md.
+[Unit]
+Description=Yalaman Baby pull-based autodeploy (poll origin/main, redeploy on change)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Point this at wherever you cloned the repo on the VPS.
+WorkingDirectory=/opt/yalamanbaby
+ExecStart=/opt/yalamanbaby/scripts/vps-autodeploy.sh
+# A deploy (npm build + docker compose up --build) can take a couple of minutes.
+TimeoutStartSec=900
+# Don't let an overlapping tick start a second deploy while one is running.
+# (The timer also serializes, but be explicit.)
+Nice=10

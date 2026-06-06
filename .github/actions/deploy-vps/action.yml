@@ -30,9 +30,11 @@ runs:
         host: ${{ inputs.host }}
         username: ${{ inputs.username }}
         key: ${{ inputs.key }}
-        # Per-attempt connection timeout. Kept short so a stalled connect fails
-        # fast and the workflow can retry, rather than burning minutes on one try.
-        timeout: 45s
+        # Per-attempt connection timeout. The workflow wraps this in a long,
+        # spread-out retry loop (see deploy.yml) to ride out the host's
+        # intermittent source-IP block, so each attempt can afford to wait a
+        # bit longer for a slow accept before giving up and backing off.
+        timeout: 60s
         command_timeout: 15m
         envs: SITE_HOSTNAME,BABY_HTTP_PORT,BABY_AUTH_HASH_B64,BABY_AUTH_COOKIE,PHOTOS_DIR
         script: |
