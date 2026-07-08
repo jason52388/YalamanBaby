@@ -6,10 +6,10 @@ import { weekData } from '../data/weeks.js';
 const cards = [
   { to: '/plan', ico: '🗓️', label: 'Your Plan', desc: 'Week-by-week to-dos & what’s next' },
   { to: '/body', ico: '🤰', label: 'Your Body', desc: 'Week-by-week body changes & medical facts' },
-  { to: '/tips', ico: '💡', label: 'Tips & Tricks', desc: 'Morning sickness & feeling your best' },
-  { to: '/diet', ico: '🥗', label: "Diet Do's & Don'ts", desc: 'What to eat, avoid, do & skip' },
   { to: '/gallery', ico: '📸', label: 'Gallery', desc: 'Our journey in pictures' },
   { to: '/names', ico: '✨', label: 'Names', desc: 'Our running list of favorites' },
+  { to: '/tips', ico: '💡', label: 'Tips & Tricks', desc: 'Morning sickness & feeling your best' },
+  { to: '/diet', ico: '🥗', label: "Diet Do's & Don'ts", desc: 'What to eat, avoid, do & skip' },
 ];
 
 // A rough fruit/veg emoji per stage, just for fun.
