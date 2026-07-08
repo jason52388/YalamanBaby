@@ -8,10 +8,10 @@ const links = [
   { to: '/', label: 'Home', end: true },
   { to: '/plan', label: 'Your Plan' },
   { to: '/body', label: 'Your Body' },
-  { to: '/tips', label: 'Tips & Tricks' },
-  { to: '/diet', label: "Diet Do's & Don'ts" },
   { to: '/gallery', label: 'Gallery' },
   { to: '/names', label: 'Names' },
+  { to: '/tips', label: 'Tips & Tricks' },
+  { to: '/diet', label: "Diet Do's & Don'ts" },
 ];
 
 export default function NavBar() {
